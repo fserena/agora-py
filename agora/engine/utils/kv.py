@@ -64,9 +64,9 @@ def get_redis_lite(*args, **kwargs):
         sys.exit(-1)
 
 
-def get_kv(persist_mode=False, redis_host='localhost', redis_port=6379, redis_db=1, redis_file=None, base='store',
+def get_kv(persist_mode=None, redis_host='localhost', redis_port=6379, redis_db=1, redis_file=None, base='store',
            path='', **kwargs):
-    if persist_mode:
+    if persist_mode is None or persist_mode:
         if redis_file is not None:
             prepare_store_path(base, path)
             redis_path = str('/'.join(filter(lambda x: x, [base, path, redis_file])))

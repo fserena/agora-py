@@ -37,7 +37,7 @@ from agora.engine.utils.kv import get_kv, close
 from agora.graph import AgoraGraph
 from agora.server.fountain import FountainClient
 from agora.server.fountain import client as fc
-from agora.server.planner import client as pc
+from agora.server.planner import client as pc, PlannerClient
 
 __author__ = 'Fernando Serena'
 
@@ -143,7 +143,10 @@ class Agora(object):
 
     def __new__(cls, **kwargs):
         a = super(Agora, cls).__new__(cls)
-        if kwargs:
+        planner = None
+        fountain_host = kwargs.get('fountain_host', None)
+        planner_host = kwargs.get('planner_host', None)
+        if fountain_host is None and planner_host is None:
             kv = get_kv(**kwargs)
             schema = Schema()
             schema.graph = get_cached_triple_store(schema.cache, **kwargs)
@@ -162,6 +165,21 @@ class Agora(object):
             fountain.seed_manager = sm
             fountain.path_manager = pm
             planner = Planner(fountain)
+        elif planner_host:
+            client_args = {'host': planner_host}
+            planner_port = kwargs.get('planner_port')
+            if planner_port:
+                client_args['port'] = planner_port
+            planner = PlannerClient(**client_args)
+        elif fountain_host:
+            client_args = {'host': fountain_host}
+            fountain_port = kwargs.get('fountain_port', None)
+            if fountain_port:
+                client_args['port'] = fountain_port
+            fountain = FountainClient(**client_args)
+            planner = Planner(fountain)
+
+        if planner:
             a.planner = planner
 
         return a

@@ -1,7 +1,7 @@
 {
-  "version": "0.5.25",
+  "version": "0.5.26",
   "author": "Fernando Serena",
-  "email": "fserena@fi.upm.es",
+  "email": "kudhmud@gmail.com",
   "github": "https://github.com/fserena/agora-py",
   "description": "A Python library for Web-scale Ontology-driven Access to Distributed Linked Data"
 }

@@ -50,7 +50,7 @@ log = logging.getLogger('agora.collector.cache')
 class RedisCache(object):
     tpool = ThreadPoolExecutor(max_workers=1)
 
-    def __init__(self, persist_mode=False, key_prefix='', min_cache_time=5, force_cache_time=False,
+    def __init__(self, persist_mode=None, key_prefix='', min_cache_time=5, force_cache_time=False,
                  base='store', path='cache', redis_host='localhost', redis_port=6379, redis_db=1, redis_file=None):
         self.__key_prefix = key_prefix
         self.__cache_key = '{}:cache'.format(key_prefix)
@@ -58,7 +58,7 @@ class RedisCache(object):
         self.__min_cache_time = min_cache_time
         self.__force_cache_time = force_cache_time
         self.__base_path = base
-        self.__resource_cache = get_triple_store()
+        # self.__resource_cache = get_triple_store()
         self._r = get_kv(persist_mode, redis_host, redis_port, redis_db, redis_file, base=base, path=path)
         self.__lock = Lock(self._r, key_prefix)
         self.__mlock = TLock()
