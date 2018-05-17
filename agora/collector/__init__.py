@@ -31,6 +31,7 @@ from agora.collector.cache import RedisCache
 from agora.collector.execution import PlanExecutor
 from agora.engine.plan.agp import AGP
 from agora.engine.plan.graph import AGORA
+from agora.engine.utils import Wrapper
 
 __author__ = "Fernando Serena"
 
@@ -56,6 +57,7 @@ class Collector(AbstractCollector):
         self.__planner = None
         self.__loader = None
         self.__force_seed = None
+        self.__fountain = None
 
     @property
     def loader(self):
@@ -80,6 +82,12 @@ class Collector(AbstractCollector):
     @planner.setter
     def planner(self, p):
         self.__planner = p
+
+    @property
+    def fountain(self):
+        if not isinstance(self.__fountain, Wrapper):
+            self.__fountain = Wrapper(self.__planner.fountain)
+        return self.__fountain
 
     @property
     def cache(self):
@@ -123,7 +131,7 @@ class Collector(AbstractCollector):
 
     @property
     def prefixes(self):
-        return self.planner.fountain.prefixes
+        return self.fountain.prefixes
 
 
 def triplify(x):
