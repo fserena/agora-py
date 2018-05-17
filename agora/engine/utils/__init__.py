@@ -70,8 +70,15 @@ def get_immediate_subdirectories(a_dir):
 
 class Wrapper(object):
     def __init__(self, object):
-        self.__object = object
-        self.__argret = {}
+        self.__lock = Lock()
+        self.__attr_locks = {}
+
+        if isinstance(object, Wrapper):
+            self.__object = object.__object
+            self.__argret = object.__argret
+        else:
+            self.__object = object
+            self.__argret = {}
 
     def decorate(self, f):
         def wrapper(*args, **kwargs):
@@ -89,11 +96,16 @@ class Wrapper(object):
         return wrapper
 
     def __getattr__(self, item):
-        if item not in self.__argret:
-            attr = self.__object.__getattribute__(item)
-            if hasattr(attr, '__call__'):
-                return self.decorate(attr)
-            else:
-                self.__argret[item] = attr
+        with self.__lock:
+            if item not in self.__attr_locks:
+                self.__attr_locks[item] = Lock()
+
+        with self.__attr_locks[item]:
+            if item not in self.__argret:
+                attr = self.__object.__getattribute__(item)
+                if hasattr(attr, '__call__'):
+                    return self.decorate(attr)
+                else:
+                    self.__argret[item] = attr
 
         return self.__argret[item]
