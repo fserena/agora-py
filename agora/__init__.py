@@ -21,8 +21,6 @@
 import logging
 import signal
 
-from rdflib import Graph
-
 from agora.collector import Collector
 from agora.collector.cache import RedisCache
 from agora.engine.fountain import Fountain
@@ -31,13 +29,14 @@ from agora.engine.fountain.path import PathManager
 from agora.engine.fountain.schema import Schema
 from agora.engine.fountain.seed import SeedManager
 from agora.engine.plan import Planner, AbstractPlanner
-from agora.engine.utils import stopped
+from agora.engine.utils import stopped, Wrapper
 from agora.engine.utils.graph import get_cached_triple_store
 from agora.engine.utils.kv import get_kv, close
 from agora.graph import AgoraGraph
 from agora.server.fountain import FountainClient
 from agora.server.fountain import client as fc
 from agora.server.planner import client as pc, PlannerClient
+from rdflib import Graph
 
 __author__ = 'Fernando Serena'
 
@@ -107,7 +106,8 @@ class Agora(object):
                 result.add((s, p, o))
         return result
 
-    def fragment_generator(self, query=None, agps=None, collector=None, cache=None, loader=None, force_seed=None, stop_event=None):
+    def fragment_generator(self, query=None, agps=None, collector=None, cache=None, loader=None, force_seed=None,
+                           stop_event=None):
         def comp_gen(gens):
             for gen in [g['generator'] for g in gens]:
                 for q in gen:
@@ -116,7 +116,8 @@ class Agora(object):
         graph = self.__get_agora_graph(collector, cache, loader, force_seed)
         agps = list(graph.agps(query)) if query else agps
 
-        generators = [graph.collector.get_fragment_generator(agp, filters=filters, stop_event=stop_event) for agp, filters in
+        generators = [graph.collector.get_fragment_generator(agp, filters=filters, stop_event=stop_event) for
+                      agp, filters in
                       agps]
         prefixes = {}
         comp_plan = Graph(namespace_manager=graph.namespace_manager)
@@ -143,9 +144,14 @@ class Agora(object):
 
     def __new__(cls, **kwargs):
         a = super(Agora, cls).__new__(cls)
+        auto = kwargs.get('auto', True)
+        if not auto:
+            return a
+
         planner = None
         fountain_host = kwargs.get('fountain_host', None)
         planner_host = kwargs.get('planner_host', None)
+
         if fountain_host is None and planner_host is None:
             kv = get_kv(**kwargs)
             schema = Schema()
