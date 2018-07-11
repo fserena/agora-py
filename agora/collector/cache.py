@@ -42,6 +42,8 @@ from agora.engine.utils import stopped, get_immediate_subdirectories
 from agora.engine.utils.graph import get_triple_store
 from agora.engine.utils.kv import get_kv
 
+import zlib
+
 __author__ = 'Fernando Serena'
 
 log = logging.getLogger('agora.collector.cache')
@@ -51,17 +53,17 @@ class RedisCache(object):
     tpool = ThreadPoolExecutor(max_workers=1)
 
     def __init__(self, persist_mode=None, key_prefix='', min_cache_time=5, force_cache_time=False,
-                 base='store', path='cache', redis_host='localhost', redis_port=6379, redis_db=1, redis_file=None):
+                 base='store', path='cache', redis_host='localhost', redis_port=6379, redis_db=1, redis_file=None, graph_memory_limit=5000):
         self.__key_prefix = key_prefix
         self.__cache_key = '{}:cache'.format(key_prefix)
         self.__persist_mode = persist_mode
         self.__min_cache_time = min_cache_time
         self.__force_cache_time = force_cache_time
         self.__base_path = base
-        # self.__resource_cache = get_triple_store()
         self._r = get_kv(persist_mode, redis_host, redis_port, redis_db, redis_file, base=base, path=path)
         self.__lock = Lock(self._r, key_prefix)
         self.__mlock = TLock()
+        self.__graph_memory_limit = graph_memory_limit
         self.__memory_graphs = {}
         self.__memory_order = []
 
@@ -73,6 +75,8 @@ class RedisCache(object):
 
         for lock_key in self._r.keys('{}:l*'.format(self.__key_prefix)):
             self._r.delete(lock_key)
+
+        self._r.delete(key_prefix)
 
         self.__enabled = True
         self.__purge_th = Thread(target=self.__purge)
@@ -134,7 +138,8 @@ class RedisCache(object):
                         p.multi()
                         log.debug('Removing {} resouces from cache...'.format(len(obsolete)))
                         for uri in obsolete:
-                            with self.uri_lock(uri):
+                            lock = self.uri_lock(uri)
+                            with lock:
                                 try:
                                     self._r.hdel(gids_key, uri)
                                     self.__forget(uri)
@@ -150,7 +155,7 @@ class RedisCache(object):
 
     def __memoize(self, key, graph):
         with self.__mlock:
-            if len(self.__memory_order) >= 5000:
+            if len(self.__memory_order) >= self.__graph_memory_limit:
                 old_key = self.__memory_order.pop(0)
                 if old_key in self.__memory_graphs:
                     del self.__memory_graphs[old_key]
@@ -188,7 +193,8 @@ class RedisCache(object):
 
             g = Graph(identifier=gid)
 
-            with self.uri_lock(gid):
+            lock = self.uri_lock(gid)
+            with lock:
                 uuid = self._r.hget('{}:gids'.format(self.__cache_key), gid)
                 if not uuid:
                     uuid = shortuuid.uuid()
@@ -204,7 +210,8 @@ class RedisCache(object):
                         try:
                             g = self.__recall(gid)
                         except KeyError:
-                            source = self._r.hget(gid_key, 'data')
+                            source_z = self._r.hget(gid_key, 'data')
+                            source = zlib.decompress(source_z)
                             g.parse(StringIO(source), format=format)
                             self.__memoize(gid, g)
 
@@ -235,7 +242,7 @@ class RedisCache(object):
                 if not self.__force_cache_time:
                     ttl = extract_ttl(headers) or ttl
 
-                p.hset(gid_key, 'data', data)
+                p.hset(gid_key, 'data', zlib.compress(data))
                 ttl_ts = calendar.timegm((dt.utcnow() + delta(seconds=ttl)).timetuple())
                 p.hset(gid_key, 'ttl', ttl_ts)
                 p.expire(gid_key, ttl)
@@ -250,7 +257,8 @@ class RedisCache(object):
                 g.remove((None, None, None))
 
     def expire(self, gid):
-        with self.uri_lock(gid):
+        lock = self.uri_lock(gid)
+        with lock:
             uuid = self._r.hget('{}:gids'.format(self.__cache_key), gid)
             with self._r.pipeline(transaction=True) as p:
                 if not uuid:
