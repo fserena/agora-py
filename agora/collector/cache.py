@@ -69,10 +69,6 @@ class RedisCache(object):
 
         self.__resources_ts = {}
 
-        # Clean temporal folders under 'base' (others than 'path' subfolder)
-        for sub in filter(lambda x: x != path, get_immediate_subdirectories(base)):
-            shutil.rmtree('{}/{}'.format(self.__base_path, sub))
-
         for lock_key in self._r.keys('{}:l*'.format(self.__key_prefix)):
             self._r.delete(lock_key)
 
@@ -180,7 +176,7 @@ class RedisCache(object):
         with self.__lock:
             lock_keys = self._r.keys('{}:l:*'.format(self.__key_prefix))
             for k in lock_keys:
-                self._r.delete()
+                self._r.delete(k)
 
     def create(self, conjunctive=False, gid=None, loader=None, format=None):
         if conjunctive:

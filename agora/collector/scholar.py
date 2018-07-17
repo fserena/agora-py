@@ -232,6 +232,9 @@ class Fragment(object):
     def load(cls, kv, triples, fragments_key, fid, prefixes=None):
         # type: (redis.StrictRedis, ConjunctiveGraph, str, str) -> Fragment
         try:
+            if not any([fid in c.identifier for c in list(triples.contexts())]):
+                raise EnvironmentError('Fragment context is not present in the triple store')            
+
             agp = AGP(kv.smembers('{}:{}:gp'.format(fragments_key, fid)), prefixes=prefixes)
             plan_turtle = kv.get('{}:{}:plan'.format(fragments_key, fid))
             fragment = Fragment(agp, kv, triples, fragments_key, fid)
@@ -240,7 +243,6 @@ class Fragment(object):
             for var_filter_key in sparql_filter_keys:
                 v = var_filter_key.split(':')[-1]
                 fragment.filters[Variable(v)] = set(kv.smembers(var_filter_key))
-
             return fragment
         except Exception, e:
             traceback.print_exc()
@@ -456,7 +458,10 @@ class FragmentIndex(object):
         index.cache = cache
         index.force_seed = force_seed
         triples = get_triple_store(**kwargs)
-        kv = get_kv(**kwargs)
+        if cache is not None:
+            kv = cache.r
+        else:
+            kv = get_kv(**kwargs)
         index.triples = triples
         index.kv = kv
 
@@ -756,6 +761,10 @@ class Scholar(Collector):
     @property
     def planner(self):
         return self.index.planner
+
+    @property
+    def fountain(self):
+        return self.index.planner.fountain
 
     @property
     def force_seed(self):
