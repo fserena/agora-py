@@ -53,7 +53,7 @@ class Semaphore(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.value = 1
-        
+
     def isSet(self):
         return self.value == 1
 
@@ -76,26 +76,38 @@ class Wrapper(object):
         if isinstance(object, Wrapper):
             self.__object = object.__object
             self.__argret = object.__argret
+            self.__attr_locks = object.__attr_locks
+            self.__lock = object.__lock
         else:
             self.__object = object
             self.__argret = {}
 
     def decorate(self, f):
         def wrapper(*args, **kwargs):
-            ret = None
-            if kwargs or args not in self.__argret:
-                ret = f(*args, **kwargs)
 
-            if kwargs:
-                return ret
+            key = f.func_name + str(args)
+            with self.__lock:
+                if key not in self.__attr_locks:
+                    self.__attr_locks[key] = Lock()
 
-            if ret is not None:
-                self.__argret[args] = ret
-            return self.__argret.get(args, None)
+            with self.__attr_locks[key]:
+                if key not in self.__argret:
+                    ret = f(*args, **kwargs)
+
+                    if kwargs:
+                        return ret
+                    if ret is not None:
+                        self.__argret[key] = ret
+
+                return self.__argret.get(key, None)
 
         return wrapper
 
     def __getattr__(self, item):
+
+        if item.startswith('__'):
+            return self.__object.__getattribute__(item)
+
         with self.__lock:
             if item not in self.__attr_locks:
                 self.__attr_locks[item] = Lock()
