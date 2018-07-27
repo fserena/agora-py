@@ -205,8 +205,13 @@ def _get_tp_paths(fountain, agp, force_seed=None):
     for c in graph.contexts():
         root_tps = filter(lambda (s, pr, o): str(s).replace('?', '') in str_roots, c.triples((None, None, None)))
 
-        root_types = find_root_types(fountain, root_tps, c)
+        root_types = find_root_types(fountain, root_tps, c, extend=True)
         root_types = {_subject_transform(tp[0]): types for tp, types in root_types.items()}
+        spec_root_types = {}
+        for root_elm, types in root_types.items():
+            spec_root_types[root_elm] = set(
+                filter(lambda x: not set.intersection(set(fountain.get_type(x)['sub']), root_types[root_elm]),
+                       root_types[root_elm]))
 
         for tp in agp:
             if tp not in tp_hints:
@@ -238,7 +243,6 @@ def _get_tp_paths(fountain, agp, force_seed=None):
                             for step in w_path:
                                 if source is not None:
                                     link = graph.qname(wire.get_edge_data(source, step)['link'])
-                                    # if link != 'rdf:type':
                                     path.append(link)
                                 source = step
                             if tp.p != RDF.type or isinstance(tp.o, Variable):
@@ -272,6 +276,11 @@ def _get_tp_paths(fountain, agp, force_seed=None):
                 rt_paths = filter(
                     lambda x: not x['steps'] or x['steps'][-1].get('property', None) not in root_predicates[
                         str(root).replace('?', '')],
+                    rt_paths)
+
+                rt_paths = filter(
+                    lambda x: not x['steps'] or set.intersection(spec_root_types[root], set(
+                        fountain.get_property(x['steps'][-1].get('property', None))['range'])),
                     rt_paths)
 
                 if not rt_paths:
