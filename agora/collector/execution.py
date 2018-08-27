@@ -32,7 +32,7 @@ from xml.sax import SAXParseException
 
 from concurrent.futures import ThreadPoolExecutor, wait
 from rdflib import ConjunctiveGraph, RDF, URIRef
-from rdflib import Graph
+from rdflib import Graph, BNode
 from rdflib import Variable
 from rdflib.plugins.sparql.algebra import translateQuery
 from rdflib.plugins.sparql.parser import expandUnicodeEscapes, Query
@@ -236,6 +236,43 @@ class PlanExecutor(object):
                 self.__fragment_ttl = max(self.__fragment_ttl, 0)
             self.__last_ttl_ts = now
 
+        def __treat_resource_content(tg, uri, parse_format):
+
+            try:
+                resource = _open_graph(uri, loader=loader, format=parse_format, cache=cache)
+                self.__n_derefs += 1
+                if isinstance(resource, bool):
+                    return resource
+            except KeyboardInterrupt:
+                stop_event.set()
+                return
+            except Exception, e:
+                traceback.print_exc()
+                log.warn(e.message)
+                return
+
+            g, ttl = resource
+
+            try:
+                __update_fragment_ttl()
+                self.__fragment_ttl = min(self.__fragment_ttl, ttl)
+                tg_context = tg.get_context(uri)
+
+                uri_ref = URIRef(uri)
+                for (s, p, o) in g:
+                    add = s == uri_ref and (
+                            (p == RDF.type and o in self.__wrapper.known_types) or p in self.__wrapper.known_predicates)
+                    add |= o == uri_ref and p in self.__wrapper.inverses
+                    add |= isinstance(s, BNode)
+                    if add:
+                        tg_context.add((s, p, o))
+
+                # tg.get_context(uri).__iadd__(g)
+                return True
+            finally:
+                if g is not None:
+                    _release_graph(g, cache)
+
         def __dereference_uri(tg, uri):
 
             if not isinstance(uri, URIRef):
@@ -244,38 +281,12 @@ class PlanExecutor(object):
             uri = uri.toPython()
             uri = uri.encode('utf-8')
 
-            def treat_resource_content(parse_format):
-
-                try:
-                    resource = _open_graph(uri, loader=loader, format=parse_format, cache=cache)
-                    self.__n_derefs += 1
-                    if isinstance(resource, bool):
-                        return resource
-                except KeyboardInterrupt:
-                    stop_event.set()
-                    return
-                except Exception, e:
-                    traceback.print_exc()
-                    log.warn(e.message)
-                    return
-
-                g, ttl = resource
-
-                try:
-                    __update_fragment_ttl()
-                    self.__fragment_ttl = min(self.__fragment_ttl, ttl)
-                    tg.get_context(uri).__iadd__(g)
-                    return True
-                finally:
-                    if g is not None:
-                        _release_graph(g, cache)
-
             with self.resource_lock(uri):
                 if tg.get_context(uri):
                     return
 
                 for fmt in sorted(RDF_MIMES.keys(), key=lambda x: x != self.__last_success_format):
-                    if treat_resource_content(fmt):
+                    if __treat_resource_content(tg, uri, fmt):
                         self.__last_success_format = fmt
                         break
 
