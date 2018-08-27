@@ -38,10 +38,13 @@ class Singleton(type):
 
 
 def prepare_store_path(base, path):
-    if not os.path.exists(base):
+    if base and not os.path.exists(base):
         os.makedirs(base)
-    if not os.path.exists('{}/{}'.format(base, path)):
-        os.makedirs('{}/{}'.format(base, path))
+    if base or path:
+        full_path = '/'.join(filter(lambda x: x, [base, path]))
+        if not os.path.exists(full_path):
+            os.makedirs(full_path)
+        return full_path
 
 
 class Semaphore(object):
