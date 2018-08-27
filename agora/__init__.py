@@ -53,6 +53,8 @@ signal.signal(signal.SIGTERM, signal_term_handler)
 def setup_logging(level):
     log = logging.getLogger('agora')
     log.setLevel(level)
+    for h in log.handlers:
+        log.removeHandler(h)
     ch = logging.StreamHandler()
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     ch.setLevel(level)
@@ -151,6 +153,9 @@ class Agora(object):
         planner = None
         fountain_host = kwargs.get('fountain_host', None)
         planner_host = kwargs.get('planner_host', None)
+
+        if fountain_host is None and 'persist_mode' not in kwargs:
+            kwargs['persist_mode'] = False
 
         if fountain_host is None and planner_host is None:
             kv = get_kv(**kwargs)
