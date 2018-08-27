@@ -246,7 +246,7 @@ class PlanExecutor(object):
                 stop_event.set()
                 return
             except Exception, e:
-                traceback.print_exc()
+                # traceback.print_exc()
                 log.warn(e.message)
                 return
 
@@ -302,7 +302,7 @@ class PlanExecutor(object):
             except KeyboardInterrupt:
                 stop_event.set()
             except Exception as e:
-                traceback.print_exc()
+                # traceback.print_exc()
                 log.warning(e.message)
 
         def __process_pattern_link_seed(seed, tree_graph, pattern_link):
@@ -693,7 +693,7 @@ class PlanExecutor(object):
                         stop_event.set()
                         raise StopException()
                     except Exception as e:
-                        traceback.print_exc()
+                        # traceback.print_exc()
                         log.error(e.message)
                         raise StopException()
             finally:

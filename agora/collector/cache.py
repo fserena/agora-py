@@ -140,11 +140,11 @@ class RedisCache(object):
                                     self._r.hdel(gids_key, uri)
                                     self.__forget(uri)
                                 except Exception:
-                                    traceback.print_exc()
+                                    # traceback.print_exc()
                                     log.error('Purging resource {}'.format(uri))
                                 p.execute()
             except Exception, e:
-                traceback.print_exc()
+                # traceback.print_exc()
                 log.error(e.message)
                 self.__enabled = False
             sleep(10)
