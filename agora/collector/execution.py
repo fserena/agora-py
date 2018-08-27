@@ -145,13 +145,13 @@ def _follow_in_breadth(n, next_seeds, tree_graph, workers, follow, pool, parent=
 
         wait(threads)
         [(workers.get_nowait(), workers.task_done()) for _ in threads]
-        next_seeds.clear()
+        # next_seeds.clear()
     except (IndexError, KeyError):
         traceback.print_exc()
 
 
 class PlanExecutor(object):
-    pool = ThreadPoolExecutor(max_workers=(2 * multiprocessing.cpu_count()) + 1)
+    pool = ThreadPoolExecutor(max_workers=(4 * multiprocessing.cpu_count()) + 1)
 
     def __init__(self, plan):
 
@@ -279,6 +279,8 @@ class PlanExecutor(object):
 
             uri = uri.toPython()
             uri = uri.encode('utf-8')
+
+            __check_stop()
 
             with self.resource_lock(uri):
                 if tg.get_context(uri):
@@ -528,6 +530,8 @@ class PlanExecutor(object):
                 queue.put((seed, found))
 
         def __follow_node(node, seed, tree_graph, parent=None, queue=None, cycle=False):
+            __check_stop()
+
             found_triples = False
             notified = False
             try:
@@ -543,8 +547,7 @@ class PlanExecutor(object):
                         return
                     evaluate_and_stop = True
 
-                parent = parent[:]
-                parent.append((node, seed))
+                #parent.append(True)
 
                 with self.node_lock(node, seed):
                     try:
@@ -554,6 +557,9 @@ class PlanExecutor(object):
                             evaluate_and_stop = True
                         else:
                             self.__node_seeds.add((node, seed))
+
+                        parent = parent[:]
+                        parent.append((node, seed))
 
                         try:
                             __dereference_uri(tree_graph, seed)
@@ -672,7 +678,7 @@ class PlanExecutor(object):
                             if follow_thread:
                                 follow_thread.join()
 
-                        if not follow_cycles:
+                        if not follow_cycles or len(parent) > 100:
                             return
 
                         cycle_succ = filter(lambda (n, n_data, e_data): e_data.get('cycle', False), successors)
@@ -682,7 +688,8 @@ class PlanExecutor(object):
                             on_property = e_data.get('onProperty', None)
                             __process_link_seed(seed, tree_graph, on_property, next_seeds)
                             next_seeds = set(
-                                filter(lambda s: (n, s) not in p and (n, s) not in self.__node_seeds, next_seeds))
+                                filter(lambda s: (n, s) not in p and (node, s) not in p and (
+                                node, s) not in self.__node_seeds and (n, s) not in self.__node_seeds, next_seeds))
                             if next_seeds:
                                 log.debug(u'Entering cycle: {} -> {} -> {}'.format(seed, on_property, len(next_seeds)))
                                 _follow_in_breadth(n, next_seeds, tree_graph, workers_queue, __follow_node,

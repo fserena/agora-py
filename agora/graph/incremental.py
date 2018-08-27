@@ -210,7 +210,7 @@ def __generate(data):
 def incremental_eval_bgp(ctx, bgp):
     # type: (QueryContext, iter) -> iter
 
-    fragment_generator = ctx.graph.gen(bgp, filters=ctx.filters, stop_event=ctx.stop)
+    fragment_generator = ctx.graph.gen(bgp, filters=ctx.filters, stop_event=ctx.stop, follow_cycles=ctx.follow_cycles)
     queue = Queue()
     if fragment_generator is not None:
         dgraph = nx.DiGraph()

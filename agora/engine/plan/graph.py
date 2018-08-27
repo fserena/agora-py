@@ -321,7 +321,7 @@ def graph_plan(plan, fountain, agp):
         def_from_types = filter(lambda x: not set.intersection(set(fountain.get_type(x)['sub']), from_types),
                                 from_types)
         for dft in def_from_types:
-            tree_graph.set((t, AGORA.fromType, __extend_uri(prefixes, dft)))
+            tree_graph.add((t, AGORA.fromType, __extend_uri(prefixes, dft)))
 
     for res in plan_graph.query("""SELECT ?tree ?sub ?nxt WHERE {
                            ?tree a agora:SearchTree ;                              

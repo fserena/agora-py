@@ -109,7 +109,7 @@ class Agora(object):
         return result
 
     def fragment_generator(self, query=None, agps=None, collector=None, cache=None, loader=None, force_seed=None,
-                           stop_event=None):
+                           stop_event=None, follow_cycles=True):
         def comp_gen(gens):
             for gen in [g['generator'] for g in gens]:
                 for q in gen:
@@ -118,7 +118,8 @@ class Agora(object):
         graph = self.__get_agora_graph(collector, cache, loader, force_seed)
         agps = list(graph.agps(query)) if query else agps
 
-        generators = [graph.collector.get_fragment_generator(agp, filters=filters, stop_event=stop_event) for
+        generators = [graph.collector.get_fragment_generator(agp, filters=filters, stop_event=stop_event,
+                                                             follow_cycles=follow_cycles) for
                       agp, filters in
                       agps]
         prefixes = {}
@@ -144,7 +145,7 @@ class Agora(object):
         graph = AgoraGraph(collector)
         return graph.agps(query)
 
-    def __new__(cls, **kwargs):        
+    def __new__(cls, **kwargs):
         a = super(Agora, cls).__new__(cls)
         auto = kwargs.get('auto', True)
         if not auto:

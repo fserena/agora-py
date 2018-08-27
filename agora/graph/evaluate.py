@@ -34,7 +34,7 @@ from rdflib.plugins.sparql.sparql import (
 
 def collect_bgp_fragment(ctx, bgp):
     graph = ctx.graph
-    gen = graph.gen(bgp, filters=ctx.filters)
+    gen = graph.gen(bgp, filters=ctx.filters, follow_cycles=ctx.follow_cycles)
     if gen is not None:
         try:
             while gen.next():
@@ -528,11 +528,12 @@ def evalConstructQuery(ctx, query):
 
 
 class AgoraQueryContext(QueryContext):
-    def __init__(self, graph=None, bindings=None, incremental=True, stop_event=None, **kwargs):
+    def __init__(self, graph=None, bindings=None, incremental=True, stop_event=None, follow_cycles=True, **kwargs):
         super(AgoraQueryContext, self).__init__(graph, bindings)
         self.incremental = incremental
         self.filters = {}
         self.stop = stop_event
+        self.follow_cycles = follow_cycles
 
     def clone(self, bindings=None):
         r = AgoraQueryContext(
@@ -543,6 +544,7 @@ class AgoraQueryContext(QueryContext):
         r.graph = self.graph
         r.bnodes = self.bnodes
         r.stop = self.stop
+        r.follow_cycles = self.follow_cycles
         return r
 
 
