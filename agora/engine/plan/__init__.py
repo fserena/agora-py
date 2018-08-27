@@ -252,7 +252,7 @@ def _get_tp_paths(fountain, agp, force_seed=None):
                 if not agp_paths[(root, tp)]:
                     del agp_paths[(root, tp)]
 
-        if not force_seed:
+        if context_force_seeds: #not force_seed:
             force_seed = context_force_seeds.get(c, [])
 
         root_predicates = {}
