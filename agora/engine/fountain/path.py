@@ -74,7 +74,7 @@ def _build_directed_graph(index, generic=False, graph=None):
         graph.add_node(node, ty='prop', object=p_dict.get('type') == 'object', range=ran,
                        constraints=p_dict['constraints'])
 
-    log.debug('Known graph: {}'.format(list(graph.edges())))
+    log.debug('Link graph edges: {}'.format(len(graph.edges())))
     return graph
 
 
@@ -193,7 +193,11 @@ def _find_seed_paths(index, sm, graph, elm, force_seed=None):
             try:
                 ty_paths = _get_simple_paths(index, graph, ty, target)
             except nx.NetworkXNoPath:
-                ty_paths = None
+                if ty == target:
+                    yield ty, []
+                    continue
+                else:
+                    ty_paths = None
 
             if ty_paths is not None:
                 if ty == target or target in index.get_type(ty)['super']:

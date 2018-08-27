@@ -245,7 +245,6 @@ class Fragment(object):
                 fragment.filters[Variable(v)] = set(kv.smembers(var_filter_key))
             return fragment
         except Exception, e:
-            traceback.print_exc()
             with kv.pipeline() as pipe:
                 for fragment_key in kv.keys('{}*{}*'.format(fragments_key, fid)):
                     pipe.delete(fragment_key)

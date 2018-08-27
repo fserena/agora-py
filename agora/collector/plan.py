@@ -288,9 +288,19 @@ class PlanWrapper(object):
         self.__node_links = {}
         self.__node_patterns = {}
         self.__inverses = {}
+        self.__known_types = set()
+        self.__known_predicates = set()
 
         for s, o in plan.subject_objects(predicate=OWL.inverseOf):
             self.__inverses[o] = s
+
+        for s, o in plan.subject_objects(predicate=AGORA.onProperty):
+            self.__known_predicates.add(o)
+        for s, o in plan.subject_objects(predicate=AGORA.predicate):
+            self.__known_predicates.add(o)
+
+        for s, o in plan.subject_objects(predicate=AGORA.expectedType):
+            self.__known_types.add(o)
 
         cycles = reduce(lambda x, y: y.union(x), self.__ss.cycles.values(), set([]))
 
@@ -338,6 +348,14 @@ class PlanWrapper(object):
     @property
     def inverses(self):
         return self.__inverses
+
+    @property
+    def known_predicates(self):
+        return self.__known_predicates
+
+    @property
+    def known_types(self):
+        return self.__known_types
 
     @property
     def graph(self):

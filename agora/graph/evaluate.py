@@ -88,7 +88,6 @@ def __evalBGP(ctx, bgp):
 
 
 def evalBGP(ctx, bgp):
-    # print 'evaluating BGP {}'.format(bgp)
     yielded = []
 
     if isinstance(ctx, AgoraQueryContext) and ctx.incremental:
