@@ -68,6 +68,7 @@ def http_get(uri, format):
 
 def extract_ttl(headers):
     import email.utils as eut
+    from requests.utils import parse_dict_header
     
     ttl = None
     cache_control = headers.get('Cache-Control', None)
