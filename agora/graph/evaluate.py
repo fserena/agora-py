@@ -21,18 +21,15 @@
 import collections
 import traceback
 
+from agora.graph.incremental import incremental_eval_bgp
 from rdflib import Variable, Graph, BNode, URIRef, Literal
-from rdflib.plugins.sparql import CUSTOM_EVALS
-from rdflib.plugins.sparql.aggregates import evalAgg
-from rdflib.plugins.sparql.algebra import translateQuery
-from rdflib.plugins.sparql.evalutils import (
-    _eval, _join, _minus, _fillTemplate, _ebv)
-from rdflib.plugins.sparql.parser import parseQuery
-from rdflib.plugins.sparql.parserutils import value, Expr
+from rdflib.plugins.sparql.evalutils import _ebv
+from rdflib.plugins.sparql.evalutils import _eval
+from rdflib.plugins.sparql.evalutils import _fillTemplate
+from rdflib.plugins.sparql.evalutils import _join
+from rdflib.plugins.sparql.evalutils import _minus
 from rdflib.plugins.sparql.sparql import (
     QueryContext, AlreadyBound, FrozenBindings, SPARQLError)
-
-from agora.graph.incremental import incremental_eval_bgp
 
 
 def collect_bgp_fragment(ctx, bgp):
@@ -208,6 +205,7 @@ __sparql_op_symbols = {
 
 
 def __serialize_expr(expr, context=None):
+    from rdflib.plugins.sparql.parserutils import Expr
     if isinstance(expr, Expr):
         if not expr._vars:
             return expr.eval()
@@ -255,6 +253,7 @@ def __serialize_filter(f):
 
 
 def discriminate_filters(expr):
+    from rdflib.plugins.sparql.parserutils import Expr
     if isinstance(expr, Expr):
         n = len(expr._vars)
         if n == 1:
@@ -332,6 +331,8 @@ def evalMultiset(ctx, part):
 
 
 def evalPart(ctx, part):
+    from rdflib.plugins.sparql import CUSTOM_EVALS
+
     # try custom evaluation functions
     for name, c in CUSTOM_EVALS.items():
         try:
@@ -409,6 +410,7 @@ def evalGroup(ctx, group):
 
 
 def evalAggregateJoin(ctx, agg):
+    from rdflib.plugins.sparql.aggregates import evalAgg
     # import pdb ; pdb.set_trace()
     p = evalPart(ctx, agg.p)
     # p is always a Group, we always get a dict back
@@ -425,6 +427,8 @@ def evalAggregateJoin(ctx, agg):
 
 
 def evalOrderBy(ctx, part):
+    from rdflib.plugins.sparql.parserutils import value
+
     res = evalPart(ctx, part.p)
 
     for e in reversed(part.expr):
@@ -564,6 +568,9 @@ def traverse_part(part, filters):
 
 
 def extract_bgps(query, prefixes):
+    from rdflib.plugins.sparql.algebra import translateQuery
+    from rdflib.plugins.sparql.parser import parseQuery
+
     parsetree = parseQuery(query)
     query = translateQuery(parsetree, initNs=prefixes)
     part = query.algebra

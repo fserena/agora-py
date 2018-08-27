@@ -21,10 +21,7 @@
 import logging
 import math
 
-import requests
 from StringIO import StringIO
-from requests.utils import parse_dict_header
-import email.utils as eut
 from datetime import datetime as dt
 
 __author__ = "Fernando Serena"
@@ -35,6 +32,8 @@ RDF_MIMES = {'turtle': 'text/turtle', 'xml': 'application/rdf+xml'}
 
 
 def get_resource_ttl(headers):
+    from requests.utils import parse_dict_header
+
     cache_control = headers.get('Cache-Control', None)
     ttl = None
     if cache_control is not None:
@@ -46,6 +45,8 @@ def get_resource_ttl(headers):
 
 
 def http_get(uri, format):
+    import requests
+
     log.debug('HTTP GET {}'.format(uri))
     try:
         response = requests.get(uri, headers={'Accept': RDF_MIMES[format]}, timeout=30)
@@ -66,6 +67,8 @@ def http_get(uri, format):
 
 
 def extract_ttl(headers):
+    import email.utils as eut
+    
     ttl = None
     cache_control = headers.get('Cache-Control', None)
     if cache_control is not None:

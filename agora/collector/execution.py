@@ -34,9 +34,6 @@ from concurrent.futures import ThreadPoolExecutor, wait
 from rdflib import ConjunctiveGraph, RDF, URIRef
 from rdflib import Graph, BNode
 from rdflib import Variable
-from rdflib.plugins.sparql.algebra import translateQuery
-from rdflib.plugins.sparql.parser import expandUnicodeEscapes, Query
-from rdflib.plugins.sparql.sparql import QueryContext
 
 from agora.collector.http import get_resource_ttl, RDF_MIMES, http_get
 from agora.collector.plan import PlanWrapper
@@ -214,6 +211,8 @@ class PlanExecutor(object):
 
     def get_fragment_generator(self, workers=None, stop_event=None, queue_wait=None, queue_size=100, cache=None,
                                loader=None, filters=None, follow_cycles=True, type_strict=True):
+
+        from rdflib.plugins.sparql.sparql import QueryContext
 
         if workers is None:
             workers = multiprocessing.cpu_count()
@@ -706,6 +705,9 @@ class PlanExecutor(object):
             Iterate over all search trees and yield relevant triples
             :return:
             """
+
+            from rdflib.plugins.sparql.algebra import translateQuery
+            from rdflib.plugins.sparql.parser import expandUnicodeEscapes, Query
 
             def execute_plan():
                 try:

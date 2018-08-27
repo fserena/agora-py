@@ -34,7 +34,6 @@ from rdflib import plugin
 
 from agora.engine.plan.agp import TP, AGP
 from agora.engine.plan.graph import AGORA
-from agora.graph.evaluate import extract_bgps
 
 __author__ = 'Fernando Serena'
 
@@ -164,5 +163,6 @@ class AgoraGraph(ConjunctiveGraph):
         return result.plan
 
     def agps(self, query_object):
+        from agora.graph.evaluate import extract_bgps
         for bgp, filters in extract_bgps(query_object, prefixes=self.__collector.prefixes):
             yield self.build_agp(bgp.triples), filters

@@ -32,10 +32,10 @@ from agora.engine.plan import Planner, AbstractPlanner
 from agora.engine.utils import stopped, Wrapper
 from agora.engine.utils.graph import get_cached_triple_store
 from agora.engine.utils.kv import get_kv, close
-from agora.graph import AgoraGraph
 from agora.server.fountain import FountainClient
 from agora.server.fountain import client as fc
 from agora.server.planner import client as pc, PlannerClient
+from agora.graph import AgoraGraph
 from rdflib import Graph
 
 __author__ = 'Fernando Serena'
@@ -144,7 +144,7 @@ class Agora(object):
         graph = AgoraGraph(collector)
         return graph.agps(query)
 
-    def __new__(cls, **kwargs):
+    def __new__(cls, **kwargs):        
         a = super(Agora, cls).__new__(cls)
         auto = kwargs.get('auto', True)
         if not auto:
