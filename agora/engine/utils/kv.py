@@ -86,6 +86,7 @@ def close():
     for r in kvs:
         kvs.remove(r)
         try:
+            r.save()
             r.shutdown()
         except Exception as e:
             print e.message
