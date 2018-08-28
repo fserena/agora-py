@@ -127,7 +127,7 @@ class FragmentStream(object):
 
 
 class Fragment(object):
-    def __init__(self, agp, kv, triples, fragments_key, fid, filters=None):
+    def __init__(self, agp, kv, triples, fragments_key, fid, filters=None, follow_cycles=True):
         # type: (AGP, redis.StrictRedis, ConjunctiveGraph, str, str) -> None
         self.__lock = Lock()
         self.key = '{}:{}'.format(fragments_key, fid)
@@ -148,6 +148,7 @@ class Fragment(object):
         self.__observers = set([])
         self.collecting = False
         self.__filters = filters if isinstance(filters, dict) else {}
+        self.__follow_cycles = follow_cycles
 
     @property
     def lock(self):
@@ -178,6 +179,10 @@ class Fragment(object):
         #     with self.lock:
         self.__updated = False if self.kv.get('{}:updated'.format(self.key)) is None else True
         return self.__updated
+
+    @property
+    def follow_cycles(self):
+        return self.__follow_cycles
 
     @property
     def updated_ts(self):
@@ -233,11 +238,12 @@ class Fragment(object):
         # type: (redis.StrictRedis, ConjunctiveGraph, str, str) -> Fragment
         try:
             if not any([fid in c.identifier for c in list(triples.contexts())]):
-                raise EnvironmentError('Fragment context is not present in the triple store')            
+                raise EnvironmentError('Fragment context is not present in the triple store')
 
             agp = AGP(kv.smembers('{}:{}:gp'.format(fragments_key, fid)), prefixes=prefixes)
             plan_turtle = kv.get('{}:{}:plan'.format(fragments_key, fid))
-            fragment = Fragment(agp, kv, triples, fragments_key, fid)
+            follow_cycles = bool(int(kv.get('{}:{}:fc'.format(fragments_key, fid))))
+            fragment = Fragment(agp, kv, triples, fragments_key, fid, follow_cycles=follow_cycles)
             fragment.plan = Graph().parse(StringIO(plan_turtle), format='turtle')
             sparql_filter_keys = kv.keys('{}:{}:filters:*'.format(fragments_key, fid))
             for var_filter_key in sparql_filter_keys:
@@ -254,6 +260,7 @@ class Fragment(object):
         fragment_key = '{}:{}'.format(self.__fragments_key, self.fid)
         pipe.delete(fragment_key)
         pipe.sadd('{}:gp'.format(fragment_key), *self.__agp)
+        pipe.set('{}:fc'.format(fragment_key), 1 if self.__follow_cycles else 0)
         for v in self.__filters.keys():
             for f in self.__filters[v]:
                 pipe.sadd('{}:filters:{}'.format(fragment_key, str(v)), f)
@@ -348,7 +355,8 @@ class Fragment(object):
 
         try:
             collect_dict = collector.get_fragment_generator(self.agp, filters=self.filters,
-                                                            stop_event=self.__stop_event)
+                                                            stop_event=self.__stop_event,
+                                                            follow_cycles=self.follow_cycles)
             generator = collect_dict['generator']
             self.plan = collect_dict['plan']
             self.__aborted = False
@@ -593,7 +601,7 @@ class FragmentIndex(object):
         with self.lock:
             active_fragments = filter(lambda x: x not in self.__orphaned, self.__fragments.keys())
             for fragment_id in sorted(active_fragments, key=lambda x: abs(
-                            len(self.__fragments[x].filters) - len(filters)), reverse=False):
+                    len(self.__fragments[x].filters) - len(filters)), reverse=False):
                 fragment = self.__fragments[fragment_id]
                 mapping = fragment.mapping(agp, filters)
                 if mapping:
@@ -613,11 +621,12 @@ class FragmentIndex(object):
     def fragments(self):
         return self.__fragments
 
-    def register(self, agp, filters=None):
+    def register(self, agp, filters=None, follow_cycles=True):
         # type: (AGP, dict) -> Fragment
         with self.lock:
             fragment_id = str(uuid())
-            fragment = Fragment(agp, self.kv, self.triples, self.__fragments_key, fragment_id, filters=filters)
+            fragment = Fragment(agp, self.kv, self.triples, self.__fragments_key, fragment_id, filters=filters,
+                                follow_cycles=follow_cycles)
             with self.kv.pipeline() as pipe:
                 pipe.sadd(self.__fragments_key, fragment_id)
                 fragment.save(pipe)
@@ -928,7 +937,7 @@ class Scholar(Collector):
         mapping = self.index.get(agp, general=True, filters=filters)
         if not mapping:
             # Register fragment
-            fragment = self.index.register(agp, filters=filters)
+            fragment = self.index.register(agp, filters=filters, follow_cycles=kwargs.get('follow_cycles', True))
             mapping = {'fragment': fragment}
 
         self.index.notify()
