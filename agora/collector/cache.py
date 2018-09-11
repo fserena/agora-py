@@ -144,8 +144,8 @@ class RedisCache(object):
                                     log.error('Purging resource {}'.format(uri))
                                 p.execute()
             except Exception, e:
-                # traceback.print_exc()
-                log.error(e.message)
+                if not stopped.is_set():
+                    log.error(e.message)
                 self.__enabled = False
             sleep(10)
 
