@@ -288,7 +288,7 @@ class Fragment(object):
             listener = w_listen(until)
             try:
                 until_ts = calendar.timegm(until.timetuple())
-                listen_queue = Queue(maxsize=100)
+                listen_queue = Queue(maxsize=10000)
                 with self.__lock:
                     self.__observers.add(listener)
 
