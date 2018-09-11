@@ -713,9 +713,6 @@ class PlanExecutor(object):
             :return:
             """
 
-            from rdflib.plugins.sparql.algebra import translateQuery
-            from rdflib.plugins.sparql.parser import expandUnicodeEscapes, Query
-
             def execute_plan():
                 try:
                     for tree, data in self.__wrapper.roots:
@@ -768,6 +765,9 @@ class PlanExecutor(object):
 
         var_filters = {}
         if filters:
+            from rdflib.plugins.sparql.algebra import translateQuery
+            from rdflib.plugins.sparql.parser import expandUnicodeEscapes, Query
+
             for v in filters:
                 var_filters[v] = []
                 for f in filters[v]:
