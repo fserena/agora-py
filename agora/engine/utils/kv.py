@@ -85,11 +85,18 @@ def get_kv(persist_mode=None, redis_host='localhost', redis_port=6379, redis_db=
 def close():
     for r in kvs:
         kvs.remove(r)
-        try:
-            r.save()
-            r.shutdown()
-        except Exception as e:
-            print e.message
+        retries = 0
+        while retries < 3:
+            try:
+                r.save()
+                r.shutdown()
+                return True
+            except Exception as e:
+                retries += 1
+                if retries == 3:
+                    log.error(e.message)
+                    break
+                sleep(0.1)
 
 
 def close_kv(kv, clear=False):
@@ -110,7 +117,7 @@ def close_kv(kv, clear=False):
             kv.shutdown()
             return True
         except Exception as e:
-            print e.message
+            # print e.message
             retries += 1
             sleep(0.5)
 
