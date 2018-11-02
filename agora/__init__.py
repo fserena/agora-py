@@ -159,7 +159,9 @@ class Agora(object):
             kwargs['persist_mode'] = False
 
         if fountain_host is None and planner_host is None:
-            kv = get_kv(**kwargs)
+            kv_args = kwargs.copy()
+            kv_args['path'] = ''
+            kv = get_kv(**kv_args)
             schema = Schema()
             schema.graph = get_cached_triple_store(schema.cache, **kwargs)
             index = Index()

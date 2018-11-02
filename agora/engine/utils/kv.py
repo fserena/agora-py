@@ -23,10 +23,13 @@ import logging
 
 import redis
 import sys
-from redis.exceptions import BusyLoadingError, RedisError
+from redis.exceptions import BusyLoadingError, RedisError, ConnectionError
 from time import sleep
 from agora.engine.utils import prepare_store_path
 import imp
+import json
+import os
+import os.path
 
 __author__ = 'Fernando Serena'
 
@@ -58,10 +61,26 @@ def get_redis_lite(*args, **kwargs):
     try:
         imp.find_module('redislite')
         import redislite
+
+        settings_file = args[0] + '.settings'
+
+        try:
+            remove_settings = False
+            with open(settings_file, 'r') as f:
+                settings = json.load(f)
+                if not os.path.exists(settings['unixsocket']):
+                    remove_settings = True
+        except Exception as e:
+            pass
+
+        if remove_settings:
+            os.remove(settings_file)
+
         return redislite.StrictRedis(*args, **kwargs)
+
+
     except ImportError:
-        log.error('Redislite module is not available')
-        sys.exit(-1)
+        raise EnvironmentError('Redislite module is not available')
 
 
 def get_kv(persist_mode=None, redis_host='localhost', redis_port=6379, redis_db=1, redis_file=None, base='store',
@@ -92,6 +111,8 @@ def close():
                 r.shutdown()
                 return True
             except Exception as e:
+                if 'connecting to unix socket' in e.message:
+                    break
                 retries += 1
                 if retries == 3:
                     log.error(e.message)
