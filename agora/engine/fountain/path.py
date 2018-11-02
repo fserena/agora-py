@@ -148,6 +148,10 @@ def _get_simple_paths(index, graph, source, target):
         target_type_dict = index.get_type(target)
         source_type_super = source_type_dict['super']
         target_type_super = target_type_dict['super']
+
+        if not paths and not source_type_super:
+            source_type_super.append(source)
+
         for ss_ty in source_type_super:
             paths.extend(_all_simple_paths(graph, ss_ty, target))
             for ts_ty in target_type_super:
