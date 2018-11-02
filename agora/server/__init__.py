@@ -286,3 +286,4 @@ class Client(object):
         response = requests.delete(urlparse.urljoin(self.host, path))
         if response.status_code != 200:
             log.warning(response.content)
+            raise IOError({'code': response.status_code, 'text': message})
