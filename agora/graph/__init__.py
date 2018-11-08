@@ -110,7 +110,6 @@ class AgoraGraph(ConjunctiveGraph):
         return AGP(tps, self.__collector.prefixes)
 
     def gen(self, bgp, filters=None, **kwargs):
-        # type: (list) -> (Graph, iter)
         bgp = frozenset(bgp)
         if bgp not in self.__collected:
             agp = self.build_agp(bgp)

@@ -79,7 +79,7 @@ def graph_plan(plan, fountain, agp):
         for c_id, c_node in described_cycles.items():
             c_root_types = set({})
             for crt in plan_graph.objects(c_node, AGORA.expectedType):
-                crt_qname = plan_graph.qname(crt)
+                crt_qname = str(plan_graph.qname(crt))
                 c_root_types.update(_type_subtree(fountain, crt_qname))
             c_roots[c_id] = c_root_types
         return c_roots
@@ -301,9 +301,10 @@ def graph_plan(plan, fountain, agp):
     for res in expected_res:
         expected_types = list(tree_graph.objects(res.n, AGORA.expectedType))
 
-        q_expected_types = set(map(lambda x: tree_graph.qname(x), expected_types))
+        q_expected_types = set(map(lambda x: str(tree_graph.qname(x)), expected_types))
         q_expected_types = filter(
-            lambda x: not set.intersection(set(fountain.get_type(x)['super']), q_expected_types), q_expected_types)
+            lambda x: not set.intersection(set(fountain.get_type(x)['super']),
+                                                                   q_expected_types), q_expected_types)
         type_hierarchy = len(q_expected_types) == 1
         tree_graph.add((res.n, AGORA.typeHierarchy, Literal(type_hierarchy)))
 
@@ -317,7 +318,7 @@ def graph_plan(plan, fountain, agp):
 
     for t in s_trees:
         tree_graph.set((t, AGORA.length, Literal(tree_lengths.get(t, 0), datatype=XSD.integer)))
-        from_types = set([plan_graph.qname(x) for x in plan_graph.objects(t, AGORA.fromType)])
+        from_types = set([str(plan_graph.qname(x)) for x in plan_graph.objects(t, AGORA.fromType)])
         def_from_types = filter(lambda x: not set.intersection(set(fountain.get_type(x)['sub']), from_types),
                                 from_types)
         for dft in def_from_types:

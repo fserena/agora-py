@@ -54,11 +54,11 @@ def find_root_types(fountain, root_tps, graph, extend=True):
             if not isinstance(o, URIRef):
                 tp_types.update(set(fountain.types))
             else:
-                t = graph.qname(o)
+                t = str(graph.qname(o))
                 tp_types.add(t)
                 tp_types.update(set(fountain.get_type(t)['sub']))
         else:
-            tp_types.update(set(fountain.get_property(graph.qname(p))['domain']))
+            tp_types.update(set(fountain.get_property(str(graph.qname(p)))['domain']))
 
         tp_types = set(filter(
             lambda t: not set.intersection(set(fountain.get_type(t)['super']), tp_types) or fountain.get_type(t)[
@@ -252,13 +252,13 @@ def _get_tp_paths(fountain, agp, force_seed=None):
                 if not agp_paths[(root, tp)]:
                     del agp_paths[(root, tp)]
 
-        if context_force_seeds: #not force_seed:
+        if context_force_seeds:
             force_seed = context_force_seeds.get(c, [])
 
         root_predicates = {}
         for str_root in str_roots:
             root_tps = filter(lambda (s, pr, o): str(s).replace('?', '') == str_root, c.triples((None, None, None)))
-            root_predicates[str_root] = map(lambda x: graph.qname(x[1]), root_tps)
+            root_predicates[str_root] = map(lambda x: str(graph.qname(x[1])), root_tps)
 
         for (root, tp), paths in agp_paths.items():
             r_types = root_types.get(root, [])
