@@ -62,19 +62,20 @@ def get_redis_lite(*args, **kwargs):
         imp.find_module('redislite')
         import redislite
 
-        settings_file = args[0] + '.settings'
+        if args:
+            settings_file = args[0] + '.settings'
 
-        try:
-            remove_settings = False
-            with open(settings_file, 'r') as f:
-                settings = json.load(f)
-                if not os.path.exists(settings['unixsocket']):
-                    remove_settings = True
-        except Exception as e:
-            pass
+            try:
+                remove_settings = False
+                with open(settings_file, 'r') as f:
+                    settings = json.load(f)
+                    if not os.path.exists(settings['unixsocket']):
+                        remove_settings = True
+            except Exception as e:
+                pass
 
-        if remove_settings:
-            os.remove(settings_file)
+            if remove_settings:
+                os.remove(settings_file)
 
         return redislite.StrictRedis(*args, **kwargs)
 
