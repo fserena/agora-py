@@ -297,7 +297,8 @@ class PlanWrapper(object):
         for s, o in plan.subject_objects(predicate=AGORA.onProperty):
             self.__known_predicates.add(o)
         for s, o in plan.subject_objects(predicate=AGORA.predicate):
-            self.__known_predicates.add(o)
+            if o != RDF.type:
+                self.__known_predicates.add(o)
 
         for s, o in plan.subject_objects(predicate=AGORA.expectedType):
             self.__known_types.add(o)
