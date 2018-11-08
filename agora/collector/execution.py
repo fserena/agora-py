@@ -150,6 +150,16 @@ def _follow_in_breadth(n, next_seeds, tree_graph, workers, follow, pool, parent=
         traceback.print_exc()
 
 
+def filter_resource(uri, resource_g, dest_g, types, predicates, inverses):
+    for (s, p, o) in resource_g:
+        add = s == uri and (
+                (p == RDF.type and o in types) or p in predicates)
+        add |= o == uri and p in inverses
+        add |= isinstance(s, BNode)
+        if add:
+            dest_g.add((s, p, o))
+
+
 class PlanExecutor(object):
     pool = ThreadPoolExecutor(max_workers=(4 * multiprocessing.cpu_count()) + 1)
 
@@ -258,15 +268,8 @@ class PlanExecutor(object):
                 tg_context = tg.get_context(uri)
 
                 uri_ref = URIRef(uri)
-                for (s, p, o) in g:
-                    add = s == uri_ref and (
-                            (p == RDF.type and o in self.__wrapper.known_types) or p in self.__wrapper.known_predicates)
-                    add |= o == uri_ref and p in self.__wrapper.inverses
-                    add |= isinstance(s, BNode)
-                    if add:
-                        tg_context.add((s, p, o))
-
-                # tg.get_context(uri).__iadd__(g)
+                filter_resource(uri_ref, g, tg_context, self.__wrapper.known_types, self.__wrapper.known_predicates,
+                                self.__wrapper.inverses)
                 return True
             finally:
                 if g is not None:
@@ -425,7 +428,6 @@ class PlanExecutor(object):
                         types = set(
                             graph.objects(subject=seed, predicate=RDF.type))
                         if tp.o not in types:
-                            # print 'filtering ' + seed + ' for ' + str(tp.s)
                             return
 
                     candidates.add((tp, seed, tp.o))
@@ -547,7 +549,7 @@ class PlanExecutor(object):
                         return
                     evaluate_and_stop = True
 
-                #parent.append(True)
+                # parent.append(True)
 
                 with self.node_lock(node, seed):
                     try:
@@ -689,7 +691,7 @@ class PlanExecutor(object):
                             __process_link_seed(seed, tree_graph, on_property, next_seeds)
                             next_seeds = set(
                                 filter(lambda s: (n, s) not in p and (node, s) not in p and (
-                                node, s) not in self.__node_seeds and (n, s) not in self.__node_seeds, next_seeds))
+                                    node, s) not in self.__node_seeds and (n, s) not in self.__node_seeds, next_seeds))
                             if next_seeds:
                                 log.debug(u'Entering cycle: {} -> {} -> {}'.format(seed, on_property, len(next_seeds)))
                                 _follow_in_breadth(n, next_seeds, tree_graph, workers_queue, __follow_node,
