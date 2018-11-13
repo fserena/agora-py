@@ -26,6 +26,7 @@ from rdflib import Variable
 from rdflib.plugins.sparql.sparql import AlreadyBound
 from rdflib.plugins.sparql.sparql import QueryContext
 
+from agora.collector.execution import StopException
 from agora.engine.plan import AGP
 
 __author__ = 'Fernando Serena'
@@ -134,7 +135,6 @@ def common_descendants(graph, x, c, base):
                 if dx.map == dc.map:
                     return True
     except Exception as e:
-        # print e.message
         raise e
     return False
 
@@ -201,8 +201,11 @@ def __generate(data):
         for c, tp in __base_generator(agp, ctx, generator):
             queue.put((c, tp))
             if ctx.stop is not None:
-                if ctx.stop.value > 0:
+                if ctx.stop.isSet():
                     break
+    except StopException:
+        if ctx.stop is not None:
+            ctx.stop.set()
     finally:
         data['collecting'] = False
 
@@ -271,5 +274,9 @@ def incremental_eval_bgp(ctx, bgp):
                                 yield __query_context(ctx, solution).solution()
                 except Empty:
                     pass
+        except KeyboardInterrupt as e:
+            if ctx.stop is not None:
+                ctx.stop.set()
+            raise e
         finally:
             gen_thread.join()

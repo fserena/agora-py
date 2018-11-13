@@ -19,11 +19,9 @@
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
 """
 import os
-from threading import Lock, Event
+from threading import Lock
 
 __author__ = 'Fernando Serena'
-
-stopped = Event()
 
 
 class Singleton(type):
@@ -124,3 +122,6 @@ class Wrapper(object):
                     self.__argret[item] = attr
 
         return self.__argret[item]
+
+
+stopped = Semaphore()

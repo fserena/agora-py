@@ -21,7 +21,6 @@
 import collections
 import traceback
 
-from agora.graph.incremental import incremental_eval_bgp
 from rdflib import Variable, Graph, BNode, URIRef, Literal
 from rdflib.plugins.sparql.evalutils import _ebv
 from rdflib.plugins.sparql.evalutils import _eval
@@ -31,10 +30,12 @@ from rdflib.plugins.sparql.evalutils import _minus
 from rdflib.plugins.sparql.sparql import (
     QueryContext, AlreadyBound, FrozenBindings, SPARQLError)
 
+from agora.graph.incremental import incremental_eval_bgp
+
 
 def collect_bgp_fragment(ctx, bgp):
     graph = ctx.graph
-    gen = graph.gen(bgp, filters=ctx.filters, follow_cycles=ctx.follow_cycles)
+    gen = graph.gen(bgp, filters=ctx.filters, follow_cycles=ctx.follow_cycles, stop_event=ctx.stop)
     if gen is not None:
         try:
             while gen.next():
@@ -42,6 +43,10 @@ def collect_bgp_fragment(ctx, bgp):
                     break
         except StopIteration:
             pass
+        except KeyboardInterrupt as e:
+            if ctx.stop:
+                ctx.stop.set()
+            raise e
 
 
 def __evalBGP(ctx, bgp):
@@ -92,7 +97,7 @@ def evalBGP(ctx, bgp):
             for x in incremental_eval_bgp(ctx, bgp):
                 yielded.append({unicode(k): unicode(x[k]) for k in x})
                 yield x
-        except Exception:
+        except (Exception, KeyboardInterrupt):
             traceback.print_exc()
             pass
     else:

@@ -20,7 +20,6 @@
 """
 
 import Queue
-import gc
 import logging
 import multiprocessing
 import sys
@@ -324,7 +323,6 @@ class PlanExecutor(object):
 
         def __check_stop():
             if stop_event.isSet():
-                gc.collect()
                 raise StopException()
 
         def __put_quad_in_queue(quad):
@@ -637,7 +635,7 @@ class PlanExecutor(object):
                                     __send_quads(seed, quads, seed_variables, space)
                                 elif follow_thread and wait_for_links:
                                     retained_candidates = {}
-                                    while True:
+                                    while not stop_event.isSet():
                                         child_msg = follow_queue.get()
                                         if not child_msg:
                                             break
@@ -745,6 +743,7 @@ class PlanExecutor(object):
 
             while not self.__aborted and (not self.__completed or not fragment_queue.empty()):
                 try:
+                    __check_stop()
                     q = fragment_queue.get(timeout=0.01)
                     fragment_queue.task_done()
                     yield q
