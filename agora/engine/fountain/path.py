@@ -288,10 +288,10 @@ def _find_path(index, sm, graph, elm, force_seed=None):
 
 class PathManager(object):
     def __init__(self):
-        # type: (Index, SeedManager) -> PathManager
         self.__index = None
         self.__sm = None
         self.__pgraph = nx.DiGraph()
+        self.__last_ts = -1
 
     @property
     def index(self):
@@ -314,15 +314,24 @@ class PathManager(object):
         _build_directed_graph(self.__index, graph=self.__pgraph)
         _find_cycles(self.__index)
 
+    def __check_graph(self):
+        current_ts = self.__index.ts
+        if self.__last_ts < current_ts:
+            self.calculate()
+            self.__last_ts = current_ts
+
     def get_paths(self, elm, force_seed=None):
+        self.__check_graph()
         seed_paths, all_cycles = _find_path(self.__index, self.__sm, self.__pgraph, elm, force_seed=force_seed)
         return {'paths': seed_paths, 'all-cycles': all_cycles}
 
     @property
     def path_graph(self):
+        self.__check_graph()
         return self.__pgraph
 
     def are_connected(self, source, target):
+        self.__check_graph()
         try:
             return bool(_get_simple_paths(self.index, self.path_graph, source, target))
         except nx.NetworkXNoPath:

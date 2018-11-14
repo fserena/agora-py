@@ -18,7 +18,7 @@
   limitations under the License.
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
 """
-
+import calendar
 import logging
 import traceback
 from datetime import datetime as dt
@@ -28,6 +28,7 @@ from concurrent.futures import wait
 
 from agora.engine.fountain.schema import Schema
 from agora.engine.utils.cache import cached
+from agora.engine.utils.kv import close_kv
 
 __author__ = 'Fernando Serena'
 
@@ -205,6 +206,7 @@ def _extract_vocabulary(schema, r, vid):
     log.info('Extracting vocabulary {}...'.format(vid))
     _delete_vocabulary(r, vid)
     start_time = dt.now()
+    r.set('ts', calendar.timegm(start_time.timetuple()))
     extracted = set([])
     types, t_futures = __extract_types(schema, r, vid, trace=extracted)
     properties, p_futures = __extract_properties(schema, r, vid, trace=extracted)
@@ -316,7 +318,10 @@ def _get_type(r, ty):
 def _cached(f):
     # type: (callable) -> callable
     def wrap(self=None, *args, **kwargs):
-        return cached(self.schema.cache)(f)(self, *args, **kwargs)
+        if self.schema.cache is not None:
+            return cached(self.schema.cache, ref_ts=self.ts)(f)(self, *args, **kwargs)
+        else:
+            return f(self, *args, **kwargs)
 
     return wrap
 
@@ -330,6 +335,13 @@ class Index(object):
     def schema(self):
         # type: () -> Schema
         return self.__schema
+
+    @property
+    def ts(self):
+        # type: () -> int
+        ts = self.__r.get('ts')
+        ts = 0 if ts is None else int(ts)
+        return ts
 
     @schema.setter
     def schema(self, schema):
@@ -377,3 +389,6 @@ class Index(object):
 
     def delete_vocabulary(self, vid):
         return _delete_vocabulary(self.__r, vid)
+
+    def close(self):
+        close_kv(self.r)

@@ -198,36 +198,42 @@ class Fountain(AbstractFountain):
         # type: (str) -> iter
         with self.__lock:
             added_vocs_iter = manager.add_vocabulary(self.__schema, owl)
-            self.__schema.cache.stable = 0
+            if self.__schema.cache is not None:
+                self.__schema.cache.stable = 0
             for vid in reversed(added_vocs_iter):
                 self.__index.index_vocabulary(vid)
             self.__pm.calculate()
             self.__sm.validate()
-            self.__schema.cache.stable = 1
+            if self.__schema.cache is not None:
+                self.__schema.cache.stable = 1
             return added_vocs_iter
 
     def update_vocabulary(self, vid, owl):
         # type: (str, str) -> None
         with self.__lock:
             manager.update_vocabulary(self.__schema, vid, owl)
-            self.__schema.cache.stable = 0
+            if self.__schema.cache is not None:
+                self.__schema.cache.stable = 0
             for v in manager.get_vocabularies(self.__schema):
                 self.__index.index_vocabulary(v)
             self.__pm.calculate()
             self.__sm.validate()
-            self.__schema.cache.stable = 1
+            if self.__schema.cache is not None:
+                self.__schema.cache.stable = 1
 
     def delete_vocabulary(self, vid):
         # type: (str) -> None
         with self.__lock:
             manager.delete_vocabulary(self.__schema, vid)
-            self.__schema.cache.stable = 0
+            if self.__schema.cache is not None:
+                self.__schema.cache.stable = 0
             self.__index.delete_vocabulary(vid)
             for v in manager.get_vocabularies(self.__schema):
                 self.__index.index_vocabulary(v)
             self.__pm.calculate()
             self.__sm.validate()
-            self.__schema.cache.stable = 1
+            if self.__schema.cache is not None:
+                self.__schema.cache.stable = 1
 
     def get_vocabulary(self, vid):
         # type: (str) -> str
@@ -276,12 +282,14 @@ class Fountain(AbstractFountain):
             if not (prefix.startswith('ns') and ns in current_ns):
                 self.__schema.graph.namespace_manager.bind(prefix, URIRef(ns), replace=True, override=True)
         self.__schema.update_ns_dicts()
-        self.__schema.cache.stable = 0
+        if self.__schema.cache is not None:
+            self.__schema.cache.stable = 0
         for vid in self.vocabularies:
             self.__index.index_vocabulary(vid)
         self.__pm.calculate()
         self.__sm.validate()
-        self.__schema.cache.stable = 1
+        if self.__schema.cache is not None:
+            self.__schema.cache.stable = 1
 
     @property
     def seeds(self):

@@ -416,7 +416,10 @@ def _get_type_specific_references(graph, ty):
 def _context(f):
     # type: (callable) -> callable
     def wrap(self=None, *args, **kwargs):
-        return cached(self.cache)(f)(self, *args, **kwargs)
+        if self.cache is not None:
+            return cached(self.cache)(f)(self, *args, **kwargs)
+        else:
+            return f(self, *args, **kwargs)
 
     return wrap
 
@@ -445,8 +448,8 @@ class SchemaGraph(object):
 
 
 class Schema(object):
-    def __init__(self):
-        self.__cache = Cache()
+    def __init__(self, cache=True):
+        self.__cache = Cache() if cache else None
         self.__graph = None
         self.__namespaces = {}
         self.__prefixes = {}
@@ -470,7 +473,7 @@ class Schema(object):
     def update_ns_dicts(self):
         self.__namespaces.update([(uri, prefix) for (prefix, uri) in self.__graph.namespaces()])
         self.__prefixes.update([(prefix, uri) for (prefix, uri) in self.__graph.namespaces()])
-        self.__cache.clear()
+        self.__clear_cache()
 
     def add_context(self, id, context):
         # type: (str, Graph) -> None
@@ -486,7 +489,11 @@ class Schema(object):
         # type: (str) -> None
         _remove_context(self.graph, id)
         self.update_ns_dicts()
-        self.__cache.clear()
+        self.__clear_cache()
+
+    def __clear_cache(self):
+        if self.__cache is not None:
+            self.__cache.clear()
 
     @property
     def contexts(self):
@@ -500,7 +507,7 @@ class Schema(object):
     @property
     def prefixes(self):
         # type: () -> dict
-        return self.__prefixes
+        return dict([(prefix, uri) for (prefix, uri) in self.__graph.namespaces()])
 
     @_context
     def get_types(self, context=None):
@@ -574,3 +581,6 @@ class Schema(object):
     @_context
     def __query(self, g, q):
         return g.query(q)
+
+    def close(self):
+        pass

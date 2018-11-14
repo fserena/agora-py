@@ -34,9 +34,14 @@ log = logging.getLogger('agora.engine.utils.cache')
 
 def get_cached_triple_store(cache, persist_mode=False, base='store', path='', **kwargs):
     if persist_mode:
-        prepare_store_path(base, path)
+        full_path = prepare_store_path(base, path)
         graph = ContextGraph(cache, 'Sleepycat')
-        graph.open('{}/{}'.format(base, path), create=True)
+        try:
+            graph.open(full_path, create=True)
+        except Exception as e:
+            rmtree(full_path)
+            raise EnvironmentError("Graph store is corrupted")
+
     else:
         graph = ContextGraph(cache)
 
@@ -52,7 +57,11 @@ def get_triple_store(persist_mode=False, base='store', path='', **kwargs):
     if persist_mode:
         full_path = prepare_store_path(base, path)
         graph = ConjunctiveGraph('Sleepycat', identifier=path)
-        graph.open(full_path, create=True)
+        try:
+            graph.open(full_path, create=True)
+        except Exception as e:
+            rmtree(full_path)
+            raise EnvironmentError(e.message)
     else:
         graph = ConjunctiveGraph()
         graph.store.graph_aware = False

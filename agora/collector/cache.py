@@ -24,7 +24,7 @@ import calendar
 import logging
 import math
 import shutil
-import traceback
+import zlib
 from StringIO import StringIO
 from datetime import datetime as dt, timedelta as delta
 from threading import Thread, Lock as TLock
@@ -38,11 +38,9 @@ from redis.lock import Lock
 
 from agora.collector.execution import parse_rdf
 from agora.collector.http import http_get, extract_ttl
-from agora.engine.utils import stopped, get_immediate_subdirectories
+from agora.engine.utils import stopped
 from agora.engine.utils.graph import get_triple_store
 from agora.engine.utils.kv import get_kv
-
-import zlib
 
 __author__ = 'Fernando Serena'
 
@@ -53,7 +51,8 @@ class RedisCache(object):
     tpool = ThreadPoolExecutor(max_workers=1)
 
     def __init__(self, persist_mode=None, key_prefix='', min_cache_time=5, force_cache_time=False,
-                 base='store', path='cache', redis_host='localhost', redis_port=6379, redis_db=1, redis_file=None, graph_memory_limit=5000):
+                 base='store', path='cache', redis_host='localhost', redis_port=6379, redis_db=1, redis_file=None,
+                 graph_memory_limit=5000):
         self.__key_prefix = key_prefix
         self.__cache_key = '{}:cache'.format(key_prefix)
         self.__persist_mode = persist_mode
@@ -122,7 +121,7 @@ class RedisCache(object):
 
     def __purge(self):
         gids_key = '{}:gids'.format(self.__cache_key)
-        while self.__enabled and not stopped.is_set():
+        while self.__enabled and not stopped.isSet():
             try:
                 gids = self._r.hkeys(gids_key)
                 obsolete = filter(
@@ -144,7 +143,7 @@ class RedisCache(object):
                                     log.error('Purging resource {}'.format(uri))
                                 p.execute()
             except Exception, e:
-                if not stopped.is_set():
+                if not stopped.isSet():
                     log.error(e.message)
                 self.__enabled = False
             sleep(10)

@@ -19,17 +19,17 @@
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
 #-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=#
 """
-import logging
-
-import redis
-import sys
-from redis.exceptions import BusyLoadingError, RedisError, ConnectionError
-from time import sleep
-from agora.engine.utils import prepare_store_path
 import imp
 import json
+import logging
 import os
 import os.path
+from time import sleep
+
+import redis
+from redis.exceptions import BusyLoadingError, RedisError
+
+from agora.engine.utils import prepare_store_path
 
 __author__ = 'Fernando Serena'
 
@@ -105,20 +105,24 @@ def get_kv(persist_mode=None, redis_host='localhost', redis_port=6379, redis_db=
 def close():
     for r in kvs:
         kvs.remove(r)
-        retries = 0
-        while retries < 3:
-            try:
-                r.save()
-                r.shutdown()
-                return True
-            except Exception as e:
-                if 'connecting to unix socket' in e.message:
-                    break
-                retries += 1
-                if retries == 3:
-                    log.error(e.message)
-                    break
-                sleep(0.1)
+        close_kv_connection(r)
+
+
+def close_kv_connection(r):
+    retries = 0
+    while retries < 3:
+        try:
+            r.save()
+            r.shutdown()
+            return True
+        except Exception as e:
+            if 'connecting to unix socket' in e.message:
+                break
+            retries += 1
+            if retries == 3:
+                log.error(e.message)
+                break
+            sleep(0.1)
 
 
 def close_kv(kv, clear=False):
@@ -132,15 +136,4 @@ def close_kv(kv, clear=False):
 
     if kv in kvs:
         kvs.remove(kv)
-
-    retries = 0
-    while retries < 3:
-        try:
-            kv.shutdown()
-            return True
-        except Exception as e:
-            # print e.message
-            retries += 1
-            sleep(0.5)
-
-    return False
+        close_kv_connection(kv)

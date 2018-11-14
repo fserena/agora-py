@@ -69,35 +69,36 @@ def deskolemize(g):
     return deskolem
 
 
+def make_plan(planner, agp_str, force_seed):
+    try:
+        agp_str = agp_str.lstrip('{').rstrip('}').strip()
+        tps = re.split('\. ', agp_str)
+        tps = map(lambda x: x.rstrip('.').strip(), filter(lambda y: y != '', tps))
+        agp = AGP(tps, prefixes=planner.fountain.prefixes)
+        plan = planner.make_plan(agp, force_seed=force_seed)
+        plan = skolemize(plan)
+        return plan.serialize(format='turtle')
+    except NameError, e:
+        raise APIError(e.message)
+
+
 def build(planner, server=None, import_name=__name__):
     # type: (AbstractPlanner, Server, str) -> Server
 
     if server is None:
         server = Server(import_name)
 
-    def __make_plan(agp_str, force_seed):
-        try:
-            agp_str = agp_str.lstrip('{').rstrip('}').strip()
-            tps = re.split('\. ', agp_str)
-            tps = map(lambda x: x.rstrip('.').strip(), filter(lambda y: y != '', tps))
-            agp = AGP(tps, prefixes=planner.fountain.prefixes)
-            plan = planner.make_plan(agp, force_seed=force_seed)
-            plan = skolemize(plan)
-            return plan.serialize(format='turtle')
-        except NameError, e:
-            raise APIError(e.message)
-
     @server.get('/plan', produce_types=(TURTLE, HTML))
-    def make_plan():
+    def make_plan_get():
         # type: () -> str
         agp_str = server.request_args.get('agp', '{}')
-        return __make_plan(agp_str, None)
+        return make_plan(planner, agp_str, None)
 
     @server.post('/plan', produce_types=(TURTLE, HTML), consume_types=(JSON,))
     def make_plan_force_seeds(req_json):
-        # type: () -> str
+        # type: (dict) -> str
         force_seed = list(tuples_force_seed(req_json['force_seed']))
-        return __make_plan(req_json['agp'], force_seed)
+        return make_plan(planner, req_json['agp'], force_seed)
 
     return server
 
@@ -109,7 +110,7 @@ class PlannerClient(Client, AbstractPlanner):
         self.__fountain = fc(host, port) if fountain is None else fountain
 
     def make_plan(self, agp, force_seed=None):
-        # type: (AGP) -> Graph
+        # type: (AGP, dict) -> Graph
         if force_seed:
             url = 'plan'
             type_seed_dict = dict_force_seed(force_seed)
@@ -132,5 +133,5 @@ class PlannerClient(Client, AbstractPlanner):
 
 
 def client(host='localhost', port=5000, fountain=None):
-    # type: (str, int) -> PlannerClient
+    # type: (str, int, AbstractFountain) -> PlannerClient
     return PlannerClient(host, port, fountain)

@@ -39,6 +39,7 @@ class Cache(dict):
         super(Cache, self).__init__(**kwargs)
         self.__watchers = []
         self.stable = 1
+        self.ts = -1
 
     def watch(self, other):
         # type: (Cache) -> None
@@ -53,18 +54,26 @@ class Cache(dict):
             obs.clear()
 
 
-def cached(cache, level=0):
-    # type: (Cache, int) -> callable
+def cached(cache, level=0, ref_ts=0):
+    # type: (Cache, int, int) -> callable
+
+    if cache.ts < ref_ts:
+        cache.clear()
+        cache.ts = ref_ts
+
     def d(f):
         @wraps(f)
         def wrap(*args, **kwargs):
-            if not isinstance(cache, Cache):
-                raise AttributeError('Cache type is not valid')
-            cache_key = b64encode(f.__name__ + str(args[1:]) + str(kwargs))
-            if not cache.stable >= level or cache_key not in cache:
-                result = f(*args, **kwargs)
-                cache[cache_key] = result
-            return cache[cache_key]
+            if cache is not None:
+                if not isinstance(cache, Cache):
+                    raise AttributeError('Cache type is not valid')
+                cache_key = b64encode(f.__name__ + str(args[1:]) + str(kwargs))
+                if not cache.stable >= level or cache_key not in cache:
+                    result = f(*args, **kwargs)
+                    cache[cache_key] = result
+                return cache[cache_key]
+            else:
+                return f(*args, **kwargs)
 
         return wrap
 
@@ -78,6 +87,9 @@ class SubGraph(Graph):
         self.__cache = cache
 
     def query(self, q, **kwargs):
+        if self.__cache is None:
+            return set(super(SubGraph, self).query(q))
+
         key = b64encode(q + self.identifier)
         if key not in self.__cache:
             r = set(super(SubGraph, self).query(q))
@@ -92,6 +104,9 @@ class ContextGraph(ConjunctiveGraph):
         self.__cache = cache
 
     def query(self, q, **kwargs):
+        if self.__cache is None:
+            return set(super(ContextGraph, self).query(q))
+
         key = b64encode(q + self.identifier)
         if key not in self.__cache:
             r = set(super(ContextGraph, self).query(q))

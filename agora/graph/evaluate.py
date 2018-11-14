@@ -39,7 +39,7 @@ def collect_bgp_fragment(ctx, bgp):
     if gen is not None:
         try:
             while gen.next():
-                if ctx.stop is not None and ctx.stop.value:
+                if ctx.stop is not None and ctx.stop.isSet():
                     break
         except StopIteration:
             pass
@@ -97,7 +97,11 @@ def evalBGP(ctx, bgp):
             for x in incremental_eval_bgp(ctx, bgp):
                 yielded.append({unicode(k): unicode(x[k]) for k in x})
                 yield x
-        except (Exception, KeyboardInterrupt):
+        except KeyboardInterrupt as e:
+            if ctx.stop:
+                ctx.stop.set()
+            raise e
+        except Exception:
             traceback.print_exc()
             pass
     else:

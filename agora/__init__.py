@@ -20,6 +20,9 @@
 """
 import logging
 import signal
+from multiprocessing import Lock
+
+from rdflib import Graph
 
 from agora.collector import Collector
 from agora.collector.cache import RedisCache
@@ -31,12 +34,11 @@ from agora.engine.fountain.seed import SeedManager
 from agora.engine.plan import Planner, AbstractPlanner
 from agora.engine.utils import stopped, Wrapper
 from agora.engine.utils.graph import get_cached_triple_store
-from agora.engine.utils.kv import get_kv, close
+from agora.engine.utils.kv import get_kv, close, close_kv
+from agora.graph import AgoraGraph
 from agora.server.fountain import FountainClient
 from agora.server.fountain import client as fc
 from agora.server.planner import client as pc, PlannerClient
-from agora.graph import AgoraGraph
-from rdflib import Graph
 
 __author__ = 'Fernando Serena'
 
@@ -64,7 +66,7 @@ def setup_logging(level):
 
 class Agora(object):
     def __init__(self, **kwargs):
-        pass
+        self.__lock = Lock()
 
     @property
     def fountain(self):
@@ -162,10 +164,21 @@ class Agora(object):
             kv_args = kwargs.copy()
             kv_args['path'] = ''
             kv = get_kv(**kv_args)
-            schema = Schema()
-            schema.graph = get_cached_triple_store(schema.cache, **kwargs)
+
+            cached_schema = kwargs.get('cached_schema', None)
+            schema = Schema(cache=cached_schema if cached_schema is not None else True)
+            if 'cached_schema' in kwargs:
+                del kwargs['cached_schema']
+
             index = Index()
             index.r = kv
+
+            try:
+                schema.graph = get_cached_triple_store(schema.cache, **kwargs)
+            except EnvironmentError as e:
+                index.r.flushdb()
+                raise e
+
             index.schema = schema
             sm = SeedManager()
             sm.index = index
@@ -197,6 +210,16 @@ class Agora(object):
             a.planner = planner
 
         return a
+
+    def shutdown(self):
+        with self.__lock:
+            fountain = self.fountain
+            if hasattr(fountain, 'index'):
+                index = fountain.index
+                index.close()
+            if hasattr(fountain, 'schema'):
+                schema = fountain.schema
+                schema.close()
 
     @staticmethod
     def close():
