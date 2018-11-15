@@ -1,6 +1,6 @@
 werkzeug
 shortuuid
-redis
+redis<3.0.0
 hiredis
 rdflib==4.2.1
 networkx>=2.0
