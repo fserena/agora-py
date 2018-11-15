@@ -128,7 +128,6 @@ class FragmentStream(object):
 
 class Fragment(object):
     def __init__(self, agp, kv, triples, fragments_key, fid, filters=None, follow_cycles=True):
-        # type: (AGP, redis.StrictRedis, ConjunctiveGraph, str, str) -> None
         self.__lock = Lock()
         self.key = '{}:{}'.format(fragments_key, fid)
         self.__agp = agp
@@ -384,7 +383,7 @@ class Fragment(object):
 
         try:
             with self.lock:
-                if not stopped.is_set() and completed and not self.aborted:
+                if not stopped.isSet() and completed and not self.aborted:
                     # Replace graph store and update ttl
                     for tp in self.__tp_map.values():
                         self.triples.remove_context(self.triples.get_context(str((self.fid, tp))))
@@ -663,7 +662,7 @@ class FragmentIndex(object):
     @staticmethod
     def _daemon():
         futures = {}
-        while not stopped.is_set():
+        while not stopped.isSet():
             FragmentIndex.daemon_event.clear()
             for index_key in FragmentIndex.instances.keys()[:]:
                 index = FragmentIndex.instances[index_key]
