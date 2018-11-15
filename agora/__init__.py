@@ -26,6 +26,7 @@ from rdflib import Graph
 
 from agora.collector import Collector
 from agora.collector.cache import RedisCache
+from agora.collector.scholar import FragmentIndex
 from agora.engine.fountain import Fountain
 from agora.engine.fountain.index import Index
 from agora.engine.fountain.path import PathManager
@@ -223,5 +224,7 @@ class Agora(object):
 
     @staticmethod
     def close():
+        for sch in FragmentIndex.instances.values():
+            sch.shutdown()
         close()
         stopped.set()

@@ -39,6 +39,7 @@ from rdflib.plugins.sparql.algebra import translateQuery
 from rdflib.plugins.sparql.parser import Query
 from rdflib.plugins.sparql.parser import expandUnicodeEscapes
 from rdflib.plugins.sparql.sparql import QueryContext
+from redis import ConnectionError
 from shortuuid import uuid
 
 from agora.collector import Collector, triplify
@@ -401,7 +402,8 @@ class Fragment(object):
                 elif self.aborted:
                     self.remove()
         except Exception, e:
-            traceback.print_exc()
+            # traceback.print_exc()
+            pass
         finally:
             self.collecting = False
 
@@ -409,18 +411,24 @@ class Fragment(object):
         # type: () -> None
         # Clear stream
         self.__stop_event.set()
-        self.stream.clear()
+        try:
+            self.stream.clear()
+        except ConnectionError:
+            pass
 
         # Remove graph contexts
         if self.__tp_map:
             for tp in self.__tp_map.values():
                 self.triples.remove_context(self.triples.get_context(str((self.fid, tp))))
 
-        # Remove fragment keys in kv
-        with self.kv.pipeline() as pipe:
-            for fragment_key in self.kv.keys('{}*{}*'.format(self.__fragments_key, self.fid)):
-                pipe.delete(fragment_key)
-            pipe.execute()
+        try:
+            # Remove fragment keys in kv
+            with self.kv.pipeline() as pipe:
+                for fragment_key in self.kv.keys('{}*{}*'.format(self.__fragments_key, self.fid)):
+                    pipe.delete(fragment_key)
+                pipe.execute()
+        except ConnectionError:
+            pass
 
     def mapping(self, agp, filters):
         # type: (AGP, dict) -> dict
@@ -486,12 +494,18 @@ class FragmentIndex(object):
     def shutdown(self):
         with self.lock:
             for fragment in self.__fragments.values():
-                fragment.shutdown()
+                try:
+                    fragment.shutdown()
+                except Exception:
+                    pass
 
             sleep(1)
 
-            for fragment in self.__fragments.values():
-                fragment.remove()
+            # for fragment in self.__fragments.values():
+            #     try:
+            #         fragment.remove()
+            #     except ConnectionError:
+            #         pass
 
             self.__fragments.clear()
 
@@ -713,7 +727,7 @@ class FragmentIndex(object):
                                     try:
                                         index.remove(fragment_id)
                                     except Exception, e:
-                                        traceback.print_exc()
+                                        # traceback.print_exc()
                                         break
 
                         futures.clear()
