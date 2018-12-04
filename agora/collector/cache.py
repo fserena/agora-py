@@ -34,6 +34,7 @@ import shortuuid
 from concurrent.futures import ThreadPoolExecutor
 from rdflib import ConjunctiveGraph
 from rdflib.graph import Graph
+from redis import ConnectionError
 from redis.lock import Lock
 
 from agora.collector.execution import parse_rdf
@@ -120,33 +121,36 @@ class RedisCache(object):
             return Lock(self._r, key)
 
     def __purge(self):
-        gids_key = '{}:gids'.format(self.__cache_key)
-        while self.__enabled and not stopped.isSet():
-            try:
-                gids = self._r.hkeys(gids_key)
-                obsolete = filter(
-                    lambda x: not self._r.exists('{}:{}'.format(self.__cache_key, self._r.hget(gids_key, x))),
-                    gids)
+        try:
+            gids_key = '{}:gids'.format(self.__cache_key)
+            while self.__enabled and not stopped.isSet():
+                try:
+                    gids = self._r.hkeys(gids_key)
+                    obsolete = filter(
+                        lambda x: not self._r.exists('{}:{}'.format(self.__cache_key, self._r.hget(gids_key, x))),
+                        gids)
 
-                if obsolete:
-                    with self._r.pipeline(transaction=True) as p:
-                        p.multi()
-                        log.debug('Removing {} resouces from cache...'.format(len(obsolete)))
-                        for uri in obsolete:
-                            lock = self.uri_lock(uri)
-                            with lock:
-                                try:
-                                    self._r.hdel(gids_key, uri)
-                                    self.__forget(uri)
-                                except Exception:
-                                    # traceback.print_exc()
-                                    log.error('Purging resource {}'.format(uri))
-                                p.execute()
-            except Exception, e:
-                if not stopped.isSet():
-                    log.error(e.message)
-                self.__enabled = False
-            sleep(10)
+                    if obsolete:
+                        with self._r.pipeline(transaction=True) as p:
+                            p.multi()
+                            log.debug('Removing {} resouces from cache...'.format(len(obsolete)))
+                            for uri in obsolete:
+                                lock = self.uri_lock(uri)
+                                with lock:
+                                    try:
+                                        self._r.hdel(gids_key, uri)
+                                        self.__forget(uri)
+                                    except Exception:
+                                        # traceback.print_exc()
+                                        log.error('Purging resource {}'.format(uri))
+                                    p.execute()
+                except Exception, e:
+                    if not stopped.isSet():
+                        log.error(e.message)
+                    self.__enabled = False
+                sleep(10)
+        except ConnectionError as e:
+            raise EnvironmentError(e.message)
 
     def __memoize(self, key, graph):
         with self.__mlock:
@@ -172,77 +176,83 @@ class RedisCache(object):
                 pass
 
     def release_locks(self):
-        with self.__lock:
-            lock_keys = self._r.keys('{}:l:*'.format(self.__key_prefix))
-            for k in lock_keys:
-                self._r.delete(k)
+        try:
+            with self.__lock:
+                lock_keys = self._r.keys('{}:l:*'.format(self.__key_prefix))
+                for k in lock_keys:
+                    self._r.delete(k)
+        except ConnectionError as e:
+            raise EnvironmentError(e.message)
 
     def create(self, conjunctive=False, gid=None, loader=None, format=None):
-        if conjunctive:
-            uuid = shortuuid.uuid()
-            g = get_triple_store(self.__persist_mode, base=self.__base_path, path=uuid)
-            return g
-        else:
-            p = self._r.pipeline(transaction=True)
-            p.multi()
+        try:
+            if conjunctive:
+                uuid = shortuuid.uuid()
+                g = get_triple_store(self.__persist_mode, base=self.__base_path, path=uuid)
+                return g
+            else:
+                p = self._r.pipeline(transaction=True)
+                p.multi()
 
-            g = Graph(identifier=gid)
+                g = Graph(identifier=gid)
 
-            lock = self.uri_lock(gid)
-            with lock:
-                uuid = self._r.hget('{}:gids'.format(self.__cache_key), gid)
-                if not uuid:
-                    uuid = shortuuid.uuid()
-                    p.hset('{}:gids'.format(self.__cache_key), gid, uuid)
+                lock = self.uri_lock(gid)
+                with lock:
+                    uuid = self._r.hget('{}:gids'.format(self.__cache_key), gid)
+                    if not uuid:
+                        uuid = shortuuid.uuid()
+                        p.hset('{}:gids'.format(self.__cache_key), gid, uuid)
 
-                gid_key = '{}:{}'.format(self.__cache_key, uuid)
+                    gid_key = '{}:{}'.format(self.__cache_key, uuid)
 
-                ttl_ts = self._r.hget(gid_key, 'ttl')
-                if ttl_ts is not None:
-                    ttl_dt = dt.utcfromtimestamp(int(ttl_ts))
-                    now = dt.utcnow()
-                    if ttl_dt > now:
-                        try:
-                            g = self.__recall(gid)
-                        except KeyError:
-                            source_z = self._r.hget(gid_key, 'data')
-                            source = zlib.decompress(source_z)
-                            g.parse(StringIO(source), format=format)
-                            self.__memoize(gid, g)
+                    ttl_ts = self._r.hget(gid_key, 'ttl')
+                    if ttl_ts is not None:
+                        ttl_dt = dt.utcfromtimestamp(int(ttl_ts))
+                        now = dt.utcnow()
+                        if ttl_dt > now:
+                            try:
+                                g = self.__recall(gid)
+                            except KeyError:
+                                source_z = self._r.hget(gid_key, 'data')
+                                source = zlib.decompress(source_z)
+                                g.parse(StringIO(source), format=format)
+                                self.__memoize(gid, g)
 
-                        ttl = math.ceil((ttl_dt - dt.utcnow()).total_seconds())
-                        return g, math.ceil(ttl)
+                            ttl = math.ceil((ttl_dt - dt.utcnow()).total_seconds())
+                            return g, math.ceil(ttl)
 
-                log.debug('Caching {}'.format(gid))
-                response = loader(gid, format)
-                if response is None and loader != http_get:
-                    response = http_get(gid, format)
+                    log.debug('Caching {}'.format(gid))
+                    response = loader(gid, format)
+                    if response is None and loader != http_get:
+                        response = http_get(gid, format)
 
-                if isinstance(response, bool):
-                    return response
+                    if isinstance(response, bool):
+                        return response
 
-                ttl = self.__min_cache_time
-                source, headers = response
-                if not isinstance(source, Graph) and not isinstance(source, ConjunctiveGraph):
-                    parse_rdf(g, source, format, headers)
-                    data = g.serialize(format='turtle')
-                else:
-                    data = source.serialize(format='turtle')
-                    for prefix, ns in source.namespaces():
-                        g.bind(prefix, ns)
-                    g.__iadd__(source)
+                    ttl = self.__min_cache_time
+                    source, headers = response
+                    if not isinstance(source, Graph) and not isinstance(source, ConjunctiveGraph):
+                        parse_rdf(g, source, format, headers)
+                        data = g.serialize(format='turtle')
+                    else:
+                        data = source.serialize(format='turtle')
+                        for prefix, ns in source.namespaces():
+                            g.bind(prefix, ns)
+                        g.__iadd__(source)
 
-                self.__memoize(gid, g)
+                    self.__memoize(gid, g)
 
-                if not self.__force_cache_time:
-                    ttl = extract_ttl(headers) or ttl
+                    if not self.__force_cache_time:
+                        ttl = extract_ttl(headers) or ttl
 
-                p.hset(gid_key, 'data', zlib.compress(data))
-                ttl_ts = calendar.timegm((dt.utcnow() + delta(seconds=ttl)).timetuple())
-                p.hset(gid_key, 'ttl', ttl_ts)
-                p.expire(gid_key, ttl)
-                p.execute()
-            return g, int(ttl)
+                    p.hset(gid_key, 'data', zlib.compress(data))
+                    ttl_ts = calendar.timegm((dt.utcnow() + delta(seconds=ttl)).timetuple())
+                    p.hset(gid_key, 'ttl', ttl_ts)
+                    p.expire(gid_key, ttl)
+                    p.execute()
+                return g, int(ttl)
+        except ConnectionError as e:
+            raise EnvironmentError(e.message)
 
     def release(self, g):
         if isinstance(g, ConjunctiveGraph):
@@ -252,17 +262,20 @@ class RedisCache(object):
                 g.remove((None, None, None))
 
     def expire(self, gid):
-        lock = self.uri_lock(gid)
-        with lock:
-            uuid = self._r.hget('{}:gids'.format(self.__cache_key), gid)
-            with self._r.pipeline(transaction=True) as p:
-                if not uuid:
-                    uuid = shortuuid.uuid()
-                    p.hset('{}:gids'.format(self.__cache_key), gid, uuid)
+        try:
+            lock = self.uri_lock(gid)
+            with lock:
+                uuid = self._r.hget('{}:gids'.format(self.__cache_key), gid)
+                with self._r.pipeline(transaction=True) as p:
+                    if not uuid:
+                        uuid = shortuuid.uuid()
+                        p.hset('{}:gids'.format(self.__cache_key), gid, uuid)
 
-                gid_key = '{}:{}'.format(self.__cache_key, uuid)
-                p.delete(gid_key)
-                p.execute()
+                    gid_key = '{}:{}'.format(self.__cache_key, uuid)
+                    p.delete(gid_key)
+                    p.execute()
+        except ConnectionError as e:
+            raise EnvironmentError(e.message)
 
     def get_matching_uris(self, part):
         return filter(lambda gid: part in gid, self._r.hkeys('{}:gids'.format(self.__cache_key)))
