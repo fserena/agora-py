@@ -251,12 +251,10 @@ class PlanExecutor(object):
                 self.__n_derefs += 1
                 if isinstance(resource, bool):
                     return resource
-            except KeyboardInterrupt:
+            except (KeyboardInterrupt, EnvironmentError):
                 stop_event.set()
                 return
-            except Exception, e:
-                # traceback.print_exc()
-                log.warn(e.message)
+            except Exception as e:
                 return
 
             g, ttl = resource
@@ -303,11 +301,10 @@ class PlanExecutor(object):
                     seed_pattern_objects.update(
                         set(tree_graph.subjects(inv, seed)))
                 next_seeds.update(seed_pattern_objects)
-            except KeyboardInterrupt:
+            except (KeyboardInterrupt, EnvironmentError):
                 stop_event.set()
             except Exception as e:
-                # traceback.print_exc()
-                log.warning(e.message)
+                pass
 
         def __process_pattern_link_seed(seed, tree_graph, pattern_link):
             __check_stop()
