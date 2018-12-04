@@ -561,22 +561,30 @@ class Schema(object):
     @_context
     def get_type_properties(self, t):
         # type: (str, Graph) -> iter
-        return _get_type_properties(self.graph, t)
+        refs = _get_type_references(self.graph, t)
+        ref_invs = reduce(lambda x, y: x.union(set(_get_property_inverses(self.graph, y))), refs, set())
+        return _get_type_properties(self.graph, t).union(ref_invs)
 
     @_context
     def get_type_specific_properties(self, t):
         # type: (str, Graph) -> iter
-        return _get_type_specific_properties(self.graph, t)
+        spec_refs = _get_type_specific_references(self.graph, t)
+        ref_invs = reduce(lambda x, y: x.union(set(_get_property_inverses(self.graph, y))), spec_refs, set())
+        return _get_type_specific_properties(self.graph, t).union(ref_invs)
 
     @_context
     def get_type_references(self, t):
         # type: (str, Graph) -> iter
-        return _get_type_references(self.graph, t)
+        props = _get_type_properties(self.graph, t)
+        prop_invs = reduce(lambda x, y: x.union(set(_get_property_inverses(self.graph, y))), props, set())
+        return _get_type_references(self.graph, t).union(prop_invs)
 
     @_context
     def get_type_specific_references(self, t):
         # type: (str, Graph) -> iter
-        return _get_type_specific_references(self.graph, t)
+        spec_props = _get_type_specific_properties(self.graph, t)
+        prop_invs = reduce(lambda x, y: x.union(set(_get_property_inverses(self.graph, y))), spec_props, set())
+        return _get_type_specific_references(self.graph, t).union(prop_invs)
 
     @_context
     def __query(self, g, q):
