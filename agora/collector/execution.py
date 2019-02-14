@@ -24,7 +24,6 @@ import logging
 import multiprocessing
 import sys
 import traceback
-from _bsddb import DBNotFoundError
 from datetime import datetime as dt, datetime
 from threading import RLock, Thread, Lock
 from xml.sax import SAXParseException
@@ -75,10 +74,6 @@ def parse_rdf(graph, content, format, headers):
     except ValueError:
         traceback.print_exc()
         return False
-    except DBNotFoundError:
-        # Ignore this exception... it is raised due to a stupid problem with prefixes
-        traceback.print_exc()
-        return True
     except SAXParseException:
         traceback.print_exc()
         return False
