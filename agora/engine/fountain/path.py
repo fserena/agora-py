@@ -249,7 +249,13 @@ def _find_path(index, sm, graph, elm, force_seed=None):
                 yield s
 
     def find_property_paths(elm):
-        return list(_find_seed_paths(index, sm, graph, elm, force_seed=force_seed))
+        type_paths = list(_find_seed_paths(index, sm, graph, elm, force_seed=force_seed))
+        elm_refs = index.get_type(elm)['refs']
+        for ref in elm_refs:
+            ref_path = list(_find_seed_paths(index, sm, graph, ref, force_seed=force_seed))
+            type_paths.extend(ref_path)
+
+        return type_paths
 
     def build_seed_path(ty, path):
         type_seeds = list(find_seeds_for(ty))
