@@ -262,7 +262,7 @@ def _get_tp_paths(fountain, agp, force_seed=None):
 
         for (root, tp), paths in agp_paths.items():
             r_types = root_types.get(root, [])
-            r_types = filter(lambda t: not set.intersection(set(fountain.get_type(t)['super']), set(r_types)), r_types)
+            #r_types = filter(lambda t: not set.intersection(set(fountain.get_type(t)['super']), set(r_types)), r_types)
 
             for rt in r_types:
                 if (root, rt, tp) not in bgp_paths:
