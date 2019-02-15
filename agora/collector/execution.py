@@ -310,7 +310,7 @@ class PlanExecutor(object):
             seed_pattern_objects = set(tree_graph.objects(seed, pattern_link))
             if pattern_link in self.__wrapper.inverses:
                 inv = self.__wrapper.inverses.get(pattern_link)
-                seed_pattern_objects.update(set(tree_graph.predicates(inv, seed)))
+                seed_pattern_objects.update(set(tree_graph.subjects(inv, seed)))
             return list(seed_pattern_objects)
 
         def __check_stop():
